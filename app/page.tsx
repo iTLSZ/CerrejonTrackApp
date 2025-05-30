@@ -43,19 +43,27 @@ import RouteSummary from "./components/route-summary"
 // import RouteMap from "./components/route-map"
 import StatsCard from "./components/stats-card"
 
-// Datos de ejemplo para el preview - incluyendo trayectos fragmentados
+// Datos de ejemplo para el preview
 const SAMPLE_HEADERS = ["AssetExtra", "Deparfrom", "Arriveat", "Distance", "Date", "Driver"]
 const SAMPLE_DATA = [
-  ["CAM001", "Parqueadero Madrid", "", "150.5", "2023-05-10", "Juan Pérez"],
-  ["CAM001", "", "", "200.3", "2023-05-10", "Juan Pérez"],
-  ["CAM001", "", "Cambiadero Patilla", "271.2", "2023-05-10", "Juan Pérez"],
-  ["CAM001", "Cambiadero Patilla", "", "180.2", "2023-05-11", "Juan Pérez"],
-  ["CAM001", "", "Parqueadero Valledupar", "171.0", "2023-05-11", "Juan Pérez"],
-  ["CAM002", "Parqueadero Valledupar", "Cambiadero Oreganal", "662.8", "2023-05-10", "Ana García"],
-  ["CAM003", "Parqueadero Madrid", "Cambiadero La Puente", "401.7", "2023-05-12", "Carlos López"],
-  ["CAM002", "Cambiadero Oreganal", "", "234.6", "2023-05-11", "Ana García"],
-  ["CAM002", "", "Parqueadero Fonseca", "300.0", "2023-05-11", "Ana García"],
-  ["CAM001", "Parqueadero Valledupar", "Cambiadero Annex", "357.9", "2023-05-12", "Juan Pérez"],
+  ["CAM001", "Madrid", "Barcelona", "621.5", "2023-05-10", "Juan Pérez"],
+  ["CAM001", "Barcelona", "Valencia", "351.2", "2023-05-11", "Juan Pérez"],
+  ["CAM002", "Valencia", "Sevilla", "662.8", "2023-05-10", "Ana García"],
+  ["CAM003", "Madrid", "Bilbao", "401.7", "2023-05-12", "Carlos López"],
+  ["CAM002", "Sevilla", "Madrid", "534.6", "2023-05-11", "Ana García"],
+  ["CAM001", "Valencia", "Madrid", "357.9", "2023-05-12", "Juan Pérez"],
+  ["CAM003", "Bilbao", "Barcelona", "620.3", "2023-05-13", "Carlos López"],
+  ["CAM004", "Barcelona", "Sevilla", "998.2", "2023-05-14", "María Rodríguez"],
+  ["CAM002", "Madrid", "Valencia", "357.9", "2023-05-13", "Ana García"],
+  ["CAM004", "Sevilla", "Madrid", "534.6", "2023-05-15", "María Rodríguez"],
+  ["CAM001", "Madrid", "Valencia", "357.9", "2023-05-13", "Juan Pérez"],
+  ["CAM003", "Barcelona", "Madrid", "621.5", "2023-05-14", "Carlos López"],
+  // Añadir más trayectos repetidos para mostrar la agrupación
+  ["CAM005", "Madrid", "Barcelona", "621.5", "2023-05-16", "Pedro Sánchez"],
+  ["CAM002", "Madrid", "Barcelona", "621.5", "2023-05-17", "Ana García"],
+  ["CAM001", "Madrid", "Barcelona", "621.5", "2023-05-18", "Juan Pérez"],
+  ["CAM003", "Madrid", "Valencia", "357.9", "2023-05-19", "Carlos López"],
+  ["CAM005", "Madrid", "Valencia", "357.9", "2023-05-20", "Pedro Sánchez"],
 ]
 
 // Lista válida de ubicaciones permitidas (exacta de la macro)
