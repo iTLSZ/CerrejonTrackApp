@@ -949,7 +949,7 @@ export default function CSVAnalyzer() {
           transition={{ duration: 0.5 }}
           className="flex flex-col"
         >
-          <h1 className="text-3xl font-bold text-center sm:text-left">RutaCerrejón - Análisis Avanzado de Trayectos</h1>
+          <h1 className="text-3xl font-bold text-center sm:text-left">CerrejonTrackApp - Análisis Avanzado de Trayectos Intermunicipales</h1>
           {fileName && !isPreview && (
             <p className="text-sm text-muted-foreground mt-1">
               Archivo actual: <span className="font-medium">{fileName}</span>
