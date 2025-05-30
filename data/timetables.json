@@ -1,0 +1,69 @@
+{
+  "Oreganal": [
+    { "Location": "Urumita", "Salida Población": "03:40", "Llegada cambiadero": "05:20", "Salida a Población": "06:16", "Llegada a población": "07:53" },
+    { "Location": "Villanueva", "Salida Población": "03:45", "Llegada cambiadero": "05:07", "Salida a Población": "06:17", "Llegada a población": "07:46" },
+    { "Location": "San Juan", "Salida Población": "04:05", "Llegada cambiadero": "05:00", "Salida a Población": "06:15", "Llegada a población": "07:17" },
+    { "Location": "Valledupar", "Salida Población": "03:15", "Llegada cambiadero": "05:05", "Salida a Población": "06:15", "Llegada a población": "08:13" },
+    { "Location": "Fonseca", "Salida Población": "04:30", "Llegada cambiadero": "05:07", "Salida a Población": "06:17", "Llegada a población": "06:56" },
+    { "Location": "Barrancas", "Salida Población": "04:40", "Llegada cambiadero": "05:08", "Salida a Población": "06:17", "Llegada a población": "06:35" },
+    { "Location": "Hatonuevo", "Salida Población": "04:50", "Llegada cambiadero": "05:12", "Salida a Población": "06:16", "Llegada a población": "06:33" },
+    { "Location": "Alojamiento", "Salida Población": "04:10", "Llegada cambiadero": "04:49", "Salida a Población": "06:00", "Llegada a población": "06:43" }
+  ],
+  "Patilla": [
+    { "Location": "Urumita", "Salida Población": "03:40", "Llegada cambiadero": "05:21", "Salida a Población": "06:11", "Llegada a población": "07:53" },
+    { "Location": "San Juan", "Salida Población": "04:05", "Llegada cambiadero": "05:08", "Salida a Población": "06:10", "Llegada a población": "07:15" },
+    { "Location": "Valledupar", "Salida Población": "03:15", "Llegada cambiadero": "05:09", "Salida a Población": "06:10", "Llegada a población": "08:01" },
+    { "Location": "Fonseca", "Salida Población": "04:30", "Llegada cambiadero": "05:05", "Salida a Población": "06:11", "Llegada a población": "06:47" },
+    { "Location": "Barrancas", "Salida Población": "04:45", "Llegada cambiadero": "05:09", "Salida a Población": "06:12", "Llegada a población": "06:32" },
+    { "Location": "Hatonuevo", "Salida Población": "04:50", "Llegada cambiadero": "05:03", "Salida a Población": "06:12", "Llegada a población": "06:24" },
+    { "Location": "Alojamiento", "Salida Población": "04:20", "Llegada cambiadero": "04:55", "Salida a Población": "06:10", "Llegada a población": "06:48" },
+    { "Location": "Waya", "Salida Población": "04:45", "Llegada cambiadero": "05:26", "Salida a Población": "06:52", "Llegada a población": "07:31" }
+  ],
+  "Annex": [
+    { "Location": "Urumita", "Salida Población": "03:41", "Llegada cambiadero": "05:46", "Salida a Población": "06:51", "Llegada a población": "08:55" },
+    { "Location": "Villanueva", "Salida Población": "03:45", "Llegada cambiadero": "05:42", "Salida a Población": "06:51", "Llegada a población": "08:51" },
+    { "Location": "Valledupar", "Salida Población": "03:15", "Llegada cambiadero": "05:33", "Salida a Población": "06:51", "Llegada a población": "09:08" },
+    { "Location": "Barrancas", "Salida Población": "04:44", "Llegada cambiadero": "05:37", "Salida a Población": "06:53", "Llegada a población": "07:41" },
+    { "Location": "Hatonuevo", "Salida Población": "04:50", "Llegada cambiadero": "05:31", "Salida a Población": "06:53", "Llegada a población": "07:31" },
+    { "Location": "Albania", "Salida Población": "05:00", "Llegada cambiadero": "05:26", "Salida a Población": "06:52", "Llegada a población": "07:21" }
+  ],
+  "La Puente": [
+    { "Location": "Urumita", "Salida Población": "04:10", "Llegada cambiadero": "06:06", "Salida a Población": "07:00", "Llegada a población": "08:59" },
+    { "Location": "Villanueva", "Salida Población": "04:15", "Llegada cambiadero": "06:08", "Salida a Población": "07:00", "Llegada a población": "08:51" },
+    { "Location": "San Juan", "Salida Población": "04:35", "Llegada cambiadero": "06:03", "Salida a Población": "06:58", "Llegada a población": "08:25" },
+    { "Location": "Valledupar", "Salida Población": "03:45", "Llegada cambiadero": "06:04", "Salida a Población": "07:01", "Llegada a población": "09:10" },
+    { "Location": "Fonseca", "Salida Población": "05:00", "Llegada cambiadero": "06:08", "Salida a Población": "07:00", "Llegada a población": "08:00" },
+    { "Location": "Barrancas", "Salida Población": "05:10", "Llegada cambiadero": "05:55", "Salida a Población": "07:00", "Llegada a población": "07:32" },
+    { "Location": "Hatonuevo", "Salida Población": "05:20", "Llegada cambiadero": "05:51", "Salida a Población": "07:02", "Llegada a población": "07:42" },
+    { "Location": "Albania", "Salida Población": "05:42", "Llegada cambiadero": "05:54", "Salida a Población": "07:00", "Llegada a población": "07:12" },
+    { "Location": "Maicao", "Salida Población": "04:30", "Llegada cambiadero": "05:20", "Salida a Población": "06:29", "Llegada a población": "07:17" },
+    { "Location": "Riohacha", "Salida Población": "04:00", "Llegada cambiadero": "05:27", "Salida a Población": "06:29", "Llegada a población": "07:53" },
+    { "Location": "Alojamiento", "Salida Población": "05:40", "Llegada cambiadero": "05:47", "Salida a Población": "06:45", "Llegada a población": "06:55" }
+  ],
+  "Change House": [
+    { "Location": "Urumita", "Salida Población": "05:07", "Llegada cambiadero": "07:24", "Salida a Población": "17:00", "Llegada a población": "19:08" },
+    { "Location": "Villanueva", "Salida Población": "05:15", "Llegada cambiadero": "07:07", "Salida a Población": "17:01", "Llegada a población": "07:00" },
+    { "Location": "San Juan", "Salida Población": "05:32", "Llegada cambiadero": "07:04", "Salida a Población": "17:01", "Llegada a población": "18:32" },
+    { "Location": "Valledupar", "Salida Población": "04:45", "Llegada cambiadero": "07:06", "Salida a Población": "17:00", "Llegada a población": "19:28" },
+    { "Location": "Fonseca", "Salida Población": "06:00", "Llegada cambiadero": "07:06", "Salida a Población": "17:02", "Llegada a población": "18:04" },
+    { "Location": "Barrancas", "Salida Población": "06:10", "Llegada cambiadero": "07:11", "Salida a Población": "17:03", "Llegada a población": "17:33" },
+    { "Location": "Hatonuevo", "Salida Población": "06:20", "Llegada cambiadero": "07:00", "Salida a Población": "17:03", "Llegada a población": "17:33" },
+    { "Location": "Albania", "Salida Población": "06:40", "Llegada cambiadero": "06:57", "Salida a Población": "17:02", "Llegada a población": "17:13" },
+    { "Location": "Maicao", "Salida Población": "05:00", "Llegada cambiadero": "06:06", "Salida a Población": "07:01", "Llegada a población": "07:58" },
+    { "Location": "Riohacha", "Salida Población": "04:25", "Llegada cambiadero": "06:10", "Salida a Población": "06:25", "Llegada a población": "07:53" }
+  ],
+  "5x2": [
+    { "Location": "Urumita", "Salida Población": null, "Llegada cambiadero": null, "Salida a Población": null, "Llegada a población": null },
+    { "Location": "Villanueva", "Salida Población": null, "Llegada cambiadero": null, "Salida a Población": null, "Llegada a población": null },
+    { "Location": "San Juan", "Salida Población": null, "Llegada cambiadero": null, "Salida a Población": null, "Llegada a población": null },
+    { "Location": "Valledupar", "Salida Población": null, "Llegada cambiadero": null, "Salida a Población": null, "Llegada a población": null },
+    { "Location": "Fonseca", "Salida Población": null, "Llegada cambiadero": null, "Salida a Población": null, "Llegada a población": null },
+    { "Location": "Barrancas", "Salida Población": null, "Llegada cambiadero": null, "Salida a Población": null, "Llegada a población": null },
+    { "Location": "Hatonuevo", "Salida Población": null, "Llegada cambiadero": null, "Salida a Población": null, "Llegada a población": null },
+    { "Location": "Albania", "Salida Población": null, "Llegada cambiadero": null, "Salida a Población": null, "Llegada a población": null },
+    { "Location": "Maicao", "Salida Población": "06:00", "Llegada cambiadero": "07:06", "Salida a Población": "17:01", "Llegada a población": "18:00" },
+    { "Location": "Riohacha", "Salida Población": "05:20", "Llegada cambiadero": "06:55", "Salida a Población": "17:00", "Llegada a población": "18:37" },
+    { "Location": "Uribia", "Salida Población": "04:00", "Llegada cambiadero": "05:21", "Salida a Población": "06:30", "Llegada a población": "07:50" },
+    { "Location": "Tomarrazón", "Salida Población": "04:00", "Llegada cambiadero": "05:12", "Salida a Población": "05:28", "Llegada a población": "08:02" }
+  ]
+} 

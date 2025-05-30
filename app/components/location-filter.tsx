@@ -16,73 +16,80 @@ interface LocationFilterProps {
   onFilterChange: (locations: string[]) => void
 }
 
-// Mapeo de normalización para unificar parqueaderos similares
+// Actualizar las listas de ubicaciones en el componente LocationFilter
+
+// Lista de ubicaciones permitidas actualizada
+const PARQUEADEROS = [
+  "Parqueadero Urumita",
+  "Parqueadero Villanueva",
+  "Parqueadero San Juan",
+  "Parqueadero Valledupar",
+  "Parqueadero Fonseca",
+  "Parqueadero Barrancas",
+  "Parqueadero Hatonuevo",
+  "Parqueadero Albania",
+  "Parqueadero Maicao",
+  "Parqueadero Riohacha",
+  "Parqueadero Alojamiento",
+  "Parqueadero Waya",
+  "Parqueadero Uribia",
+  "Parqueadero Tomarrazon",
+]
+
+const CAMBIADEROS = [
+  "Cambiadero Oreganal",
+  "Cambiadero Patilla",
+  "Cambiadero Annex",
+  "Cambiadero La Puente",
+  "Cambiadero Change House",
+]
+
+// Actualizar el mapeo de normalización para que coincida con la macro
 const LOCATION_NORMALIZATION: Record<string, string> = {
-  // Grupo Fonseca
+  "Hotel Waya": "Parqueadero Waya",
+  "Parqueadero San Juan 2": "Parqueadero San Juan",
+  "Fonseca Zona Urbana-30 Km/h, Parqueadero Fonseca Temporal": "Parqueadero Fonseca",
+  "PC42.In-Out Parqueadero Fonseca Temporal": "Parqueadero Fonseca",
   "Fonseca Zona Urbana-30 Km/h, Parqueadero Fonseca": "Parqueadero Fonseca",
   "Fonseca Zona Urbana-30 Km/h, Parqueadero Fonseca-MANT": "Parqueadero Fonseca",
-  "Fonseca Zona Urbana-30 Km/h, Parqueadero Fonseca Temporal": "Parqueadero Fonseca",
-  "Fonseca Zona Urbana-30 Km/h, PC42.In-Out Parqueadero Fonseca Temporal": "Parqueadero Fonseca",
-  "Fonseca Zona Urbana-30 Km/h, Parqueadero Fonseca 2": "Parqueadero Fonseca",
-
-  // Grupo San Juan
-  "Parqueadero San Juan": "Parqueadero San Juan",
-  "Parqueadero San Juan 2": "Parqueadero San Juan",
-
-  // Grupo Mina Buses Blancos
-  "Parqueadero Mina Buses Blancos": "Parqueadero Mina Buses Blancos",
-  "Parqueadero Mina Buses Blancos, Parqueadero Ruta Urbana": "Parqueadero Mina Buses Blancos",
-  "Parqueadero Mina Buses Blancos, PC31.Entrada Parqueadero Ruta Urbana-Fin": "Parqueadero Mina Buses Blancos",
-
-  // Grupo Hato Nuevo
-  "Parqueadero Hato Nuevo": "Parqueadero Hato Nuevo",
-  "Hato Nuevo Zona Urbana, Parqueadero Hato Nuevo-Antiguo": "Parqueadero Hato Nuevo",
-  "Hato Nuevo Zona Urbana, Parqueadero Hato Nuevo-Antiguo, PC44.In-Out Parqueadero Hato Nuevo":
-    "Parqueadero Hato Nuevo",
-
-  // Grupo Villanueva
-  "Parqueadero Villanueva": "Parqueadero Villanueva",
-  "PC40.In-Out Parqueadero Villanueva": "Parqueadero Villanueva",
-  "Parqueadero Villanueva, PC40.In-Out Parqueadero Villanueva": "Parqueadero Villanueva",
-
-  // Grupo Urumita
-  "Parqueadero Urumita": "Parqueadero Urumita",
-  "PC39.In-Out Parqueadero Urumita": "Parqueadero Urumita",
-  "Parqueadero Urumita, PC39.In-Out Parqueadero Urumita": "Parqueadero Urumita",
-
-  // Grupo Maicao
-  "Parqueadero Maicao": "Parqueadero Maicao",
+  "Paqueadero Hato Nuevo": "Parqueadero Hatonuevo",
   "PC43.In-Out Parqueadero Maicao": "Parqueadero Maicao",
+  "Alojamiento, Area De Servicios Varios (ASV)- 40 Km/h": "Parqueadero Alojamiento",
+  Lavalin: "Parqueadero Alojamiento",
+  "comunidad Soporte a Uribia": "Parqueadero Uribia",
+  "Parqueadero Uribia 2": "Parqueadero Uribia",
+  "Parqueadero Tomarrazon": "Parqueadero Tomarrazon",
+  Tomarrazon: "Parqueadero Tomarrazon",
 }
 
 export default function LocationFilter({ onFilterChange }: LocationFilterProps) {
   // Lista de ubicaciones permitidas unificadas
-  const PARQUEADEROS = [
-    "Parqueadero Fonseca",
-    "Parqueadero Villanueva",
-    "Parqueadero Valledupar",
-    "Parqueadero Hato Nuevo",
-    "Parqueadero San Juan",
-    "Parqueadero Barrancas",
-    "Parqueadero Mina Buses Blancos",
-    "Parqueadero Urumita",
-    "Parqueadero Albania",
-    "Parqueadero Riohacha",
-    "Parqueadero Maicao",
-    "Parqueadero Tomarrazon, Tomarrazon",
-    "comunidad Soporte a Uribia, Parqueadero Uribia 2",
-  ]
+  // const PARQUEADEROS = [
+  //   "Parqueadero Fonseca",
+  //   "Parqueadero Villanueva",
+  //   "Parqueadero Valledupar",
+  //   "Parqueadero Hato Nuevo",
+  //   "Parqueadero San Juan",
+  //   "Parqueadero Barrancas",
+  //   "Parqueadero Mina Buses Blancos",
+  //   "Parqueadero Urumita",
+  //   "Parqueadero Albania",
+  //   "Parqueadero Riohacha",
+  //   "Parqueadero Maicao",
+  //   "Parqueadero Tomarrazon, Tomarrazon",
+  //   "comunidad Soporte a Uribia, Parqueadero Uribia 2",
+  // ]
 
-  const CAMBIADEROS = [
-    "Cambiadero Patilla, Mina-60 Km/h",
-    "Cambiadero Change House, Vias Administrativos- 45Km/h",
-    "Cambiadero Change House, PC20.Administrativo 1, Vias Administrativos- 45Km/h",
-    "Cambiadero Oreganal, Mina-60 Km/h, PCT5.Tajo Oreganal,Tajo100,Tajo Comuneros",
-    "Cambiadero Annex, Mina-60 Km/h, PCT7-Tajo Tabaco",
-    "Cambiadero Change House, Estación de Residuos. Changue Hause, Vias Administrativos- 45Km/h",
-    "Cambiadero La Puente, Mina-60 Km/h",
-    "Mina-60 Km/h, PC47.In-Out Cambiadero La Puente",
-  ]
+  // const CAMBIADEROS = [
+  //   "Cambiadero Patilla, Mina-60 Km/h",
+  //   "Cambiadero Change House, Vias Administrativos- 45Km/h",
+  //   "Cambiadero Change House, PC20.Administrativo 1, Vias Administrativos- 45Km/h",
+  //   "Cambiadero Oreganal, Mina-60 Km/h, PCT5.Tajo Oreganal,Tajo100,Tajo Comuneros",
+  //   "Cambiadero Annex, Mina-60 Km/h, PCT7-Tajo Tabaco",
+  //   "Cambiadero Change House, Estación de Residuos. Changue Hause, Vias Administrativos- 45Km/h",
+  //   "Cambiadero La Puente, Mina-60 Km/h",
+  //   "Mina-60 Km/h, PC47.In-Out Cambiadero La Puente",
+  // ]
 
   // Estado para los filtros
   const [selectedLocations, setSelectedLocations] = useState<string[]>([...PARQUEADEROS, ...CAMBIADEROS])
