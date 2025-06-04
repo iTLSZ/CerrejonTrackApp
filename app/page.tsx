@@ -109,6 +109,7 @@ const LOCATION_NORMALIZATION: Record<string, string> = {
 
   // Nuevos reemplazos para Cambiaderos
   "Cambiadero Annex, Mina-60 Km/h, PCT7-Tajo Tabaco": "Cambiadero Annex",
+  "Mina-60 Km/h, PCT7-Tajo Tabaco": "Cambiadero Annex",
 
   "Cambiadero Change House, Vias Administrativos- 45Km/h": "Cambiadero Change House",
   "Cambiadero Change House, PC20.Administrativo 1, Vias Administrativos- 45Km/h": "Cambiadero Change House",
@@ -117,6 +118,11 @@ const LOCATION_NORMALIZATION: Record<string, string> = {
   "Cambiadero La Puente, Mina-60 Km/h": "Cambiadero La Puente",
   "Cambiadero Patilla, Mina-60 Km/h": "Cambiadero Patilla",
   "Cambiadero Oreganal, Mina-60 Km/h, PCT5.Tajo Oreganal,Tajo100,Tajo Comuneros": "Cambiadero Oreganal",
+
+  // Reemplazos para Valledupar
+  "80, 200008 Valledupar, Colombia": "Parqueadero Valledupar",
+  "Carrera 22 BIS, 200005 Valledupar, Colombia": "Parqueadero Valledupar",
+  "Valledupar Zona Urbana": "Parqueadero Valledupar",
 }
 
 // Función para normalizar nombres de ubicaciones siguiendo la lógica de la macro
@@ -141,6 +147,203 @@ const normalizeLocation = (location: string): string => {
 
   // Si no se encontró coincidencia, retornar cadena vacía (equivalente a ClearContents)
   return ""
+}
+
+// Función ultra-estricta para validar ubicaciones específicas
+const validateLocationExact = (location: string): { 
+  isValid: boolean; 
+  type: "Parqueadero" | "Cambiadero" | "Inválido"; 
+  normalizedName: string;
+  reason?: string 
+} => {
+  const normalized = normalizeLocation(location)
+  
+  if (!normalized || normalized === "") {
+    return {
+      isValid: false,
+      type: "Inválido",
+      normalizedName: "",
+      reason: `Ubicación "${location}" no reconocida en la lista permitida`
+    }
+  }
+
+  // Verificar tipo exacto
+  if (normalized.startsWith("Parqueadero ")) {
+    const parkingName = normalized.replace("Parqueadero ", "")
+    return {
+      isValid: true,
+      type: "Parqueadero",
+      normalizedName: normalized,
+      reason: `Parqueadero "${parkingName}" validado correctamente`
+    }
+  } else if (normalized.startsWith("Cambiadero ")) {
+    const changeName = normalized.replace("Cambiadero ", "")
+    return {
+      isValid: true,
+      type: "Cambiadero", 
+      normalizedName: normalized,
+      reason: `Cambiadero "${changeName}" validado correctamente`
+    }
+  } else {
+    return {
+      isValid: false,
+      type: "Inválido",
+      normalizedName: normalized,
+      reason: `Ubicación "${normalized}" no cumple con el formato esperado (Parqueadero/Cambiadero + Nombre)`
+    }
+  }
+}
+
+// Lista de restricciones específicas de rutas no permitidas
+const ROUTE_RESTRICTIONS = [
+  {
+    origin: "Cambiadero Annex",
+    destination: "Parqueadero Fonseca",
+    reason: "❌ Ruta no permitida: Cambiadero Annex no debe conectar con Parqueadero Fonseca"
+  },
+  {
+    origin: "Parqueadero Fonseca", 
+    destination: "Cambiadero Annex",
+    reason: "❌ Ruta no permitida: Parqueadero Fonseca no debe conectar con Cambiadero Annex"
+  }
+]
+
+// Función para verificar restricciones específicas de rutas
+const checkRouteRestrictions = (origin: string, destination: string): { 
+  isRestricted: boolean; 
+  reason?: string 
+} => {
+  for (const restriction of ROUTE_RESTRICTIONS) {
+    if (restriction.origin === origin && restriction.destination === destination) {
+      return {
+        isRestricted: true,
+        reason: restriction.reason
+      }
+    }
+  }
+  return { isRestricted: false }
+}
+
+// Función mejorada y más estricta para validar rutas Parqueadero ↔ Cambiadero
+const isValidParqueaderoCambiaderoStrict = (origin: string, destination: string): { 
+  isValid: boolean; 
+  direction: "Ida" | "Vuelta" | "Inválido"; 
+  reason?: string;
+  originValidation?: ReturnType<typeof validateLocationExact>;
+  destinationValidation?: ReturnType<typeof validateLocationExact>;
+} => {
+  // Verificar que ambas ubicaciones estén definidas y no vacías
+  if (!origin || !destination || origin.trim() === "" || destination.trim() === "") {
+    return { 
+      isValid: false, 
+      direction: "Inválido", 
+      reason: "Origen o destino vacío o no definido" 
+    }
+  }
+
+  // Validación ultra-estricta de ubicaciones individuales
+  const originValidation = validateLocationExact(origin)
+  const destinationValidation = validateLocationExact(destination)
+
+  if (!originValidation.isValid) {
+    return {
+      isValid: false,
+      direction: "Inválido",
+      reason: `Origen inválido: ${originValidation.reason}`,
+      originValidation,
+      destinationValidation
+    }
+  }
+
+  if (!destinationValidation.isValid) {
+    return {
+      isValid: false,
+      direction: "Inválido", 
+      reason: `Destino inválido: ${destinationValidation.reason}`,
+      originValidation,
+      destinationValidation
+    }
+  }
+
+  // Verificar que origen y destino sean diferentes
+  if (originValidation.normalizedName === destinationValidation.normalizedName) {
+    return { 
+      isValid: false, 
+      direction: "Inválido", 
+      reason: "Origen y destino son la misma ubicación",
+      originValidation,
+      destinationValidation
+    }
+  }
+
+  // VERIFICAR RESTRICCIONES ESPECÍFICAS DE RUTAS
+  const restrictionCheck = checkRouteRestrictions(originValidation.normalizedName, destinationValidation.normalizedName)
+  if (restrictionCheck.isRestricted) {
+    return {
+      isValid: false,
+      direction: "Inválido",
+      reason: restrictionCheck.reason,
+      originValidation,
+      destinationValidation
+    }
+  }
+
+  // VALIDACIÓN ESTRICTA DE TIPOS Y DIRECCIONES
+  
+  // CASO 1: Viaje de IDA - Parqueadero → Cambiadero (ULTRA ESTRICTO)
+  if (originValidation.type === "Parqueadero" && destinationValidation.type === "Cambiadero") {
+    return { 
+      isValid: true, 
+      direction: "Ida",
+      reason: `✅ Viaje de IDA válido: ${originValidation.normalizedName} → ${destinationValidation.normalizedName}`,
+      originValidation,
+      destinationValidation
+    }
+  }
+
+  // CASO 2: Viaje de VUELTA - Cambiadero → Parqueadero (ULTRA ESTRICTO)  
+  if (originValidation.type === "Cambiadero" && destinationValidation.type === "Parqueadero") {
+    return { 
+      isValid: true, 
+      direction: "Vuelta",
+      reason: `✅ Viaje de VUELTA válido: ${originValidation.normalizedName} → ${destinationValidation.normalizedName}`,
+      originValidation,
+      destinationValidation
+    }
+  }
+
+  // CASOS INVÁLIDOS ESPECÍFICOS:
+  
+  // Parqueadero → Parqueadero
+  if (originValidation.type === "Parqueadero" && destinationValidation.type === "Parqueadero") {
+    return { 
+      isValid: false, 
+      direction: "Inválido", 
+      reason: `❌ Viaje entre Parqueaderos no permitido: ${originValidation.normalizedName} → ${destinationValidation.normalizedName}`,
+      originValidation,
+      destinationValidation
+    }
+  }
+
+  // Cambiadero → Cambiadero
+  if (originValidation.type === "Cambiadero" && destinationValidation.type === "Cambiadero") {
+    return { 
+      isValid: false, 
+      direction: "Inválido", 
+      reason: `❌ Viaje entre Cambiaderos no permitido: ${originValidation.normalizedName} → ${destinationValidation.normalizedName}`,
+      originValidation,
+      destinationValidation
+    }
+  }
+
+  // Cualquier otro caso no contemplado
+  return { 
+    isValid: false, 
+    direction: "Inválido", 
+    reason: `❌ Tipo de viaje no válido: ${originValidation.type} → ${destinationValidation.type}`,
+    originValidation,
+    destinationValidation
+  }
 }
 
 // Tipo para representar un trayecto procesado
@@ -209,6 +412,17 @@ export default function CSVAnalyzer() {
   // Añadir estado para las ubicaciones filtradas
   const [filteredLocations, setFilteredLocations] = useState<string[]>(ALLOWED_LOCATIONS)
   const [searchTerm, setSearchTerm] = useState<string>("")
+
+  // Nuevo estado para rastrear validaciones y rechazos
+  const [validationResults, setValidationResults] = useState<{
+    acceptedTrips: Array<{ asset: string; route: string; direction: string; type: string }>
+    rejectedTrips: Array<{ asset: string; route: string; reason: string; type: string }>
+    totalProcessed: number
+  }>({
+    acceptedTrips: [],
+    rejectedTrips: [],
+    totalProcessed: 0
+  })
 
   // Cargar datos de ejemplo para el preview
   useEffect(() => {
@@ -299,24 +513,30 @@ export default function CSVAnalyzer() {
 
         return result
       })
-      .filter((row) => row !== null && row.some((cell) => cell !== ""))
+      .filter((row): row is string[] => row !== null && row.some((cell) => cell !== ""))
 
     console.log(`CSV procesado: ${parsedData.length} filas encontradas`)
     setProcessProgress(90)
 
     if (parsedData.length > 0) {
-      if (hasHeaderRow) {
+      if (hasHeaderRow && parsedData[0]) {
         setHeaders(parsedData[0])
         setCsvData(parsedData.slice(1))
       } else {
         // Si no hay encabezados, crear encabezados genéricos
-        const genericHeaders = Array.from({ length: parsedData[0].length }, (_, i) => `Columna ${i + 1}`)
+        const firstRow = parsedData[0]
+        if (firstRow) {
+          const genericHeaders = Array.from({ length: firstRow.length }, (_, i) => `Columna ${i + 1}`)
         setHeaders(genericHeaders)
         setCsvData(parsedData)
+        }
       }
 
       // Intentar detectar automáticamente las columnas
-      detectColumns(parsedData[0])
+      const firstRow = parsedData[0]
+      if (firstRow) {
+        detectColumns(firstRow)
+      }
       setProcessProgress(100)
 
       setTimeout(() => {
@@ -348,86 +568,7 @@ export default function CSVAnalyzer() {
     setColumnMappings(mapping)
   }
 
-  // Nueva función para procesar trayectos completos y fragmentados
-  const processTripsAdvanced = (data: string[][]): ProcessedTrip[] => {
-    const trips: ProcessedTrip[] = []
-    const assetGroups: Record<string, number[]> = {}
-
-    // Agrupar filas por activo manteniendo el orden
-    data.forEach((row, index) => {
-      const asset = row[columnMappings.assetExtra] || "Unknown"
-      if (!assetGroups[asset]) {
-        assetGroups[asset] = []
-      }
-      assetGroups[asset].push(index)
-    })
-
-    // Procesar cada activo individualmente
-    Object.entries(assetGroups).forEach(([asset, rowIndexes]) => {
-      let i = 0
-
-      while (i < rowIndexes.length) {
-        const currentRowIndex = rowIndexes[i]
-        const currentRow = data[currentRowIndex]
-
-        const departure = normalizeLocation(currentRow[columnMappings.deparfrom])
-        const arrival = normalizeLocation(currentRow[columnMappings.arriveat])
-        const distance = Number.parseFloat(currentRow[columnMappings.distance]) || 0
-
-        // Caso 1: Trayecto completo en una sola fila
-        if (departure && arrival && departure !== arrival) {
-          const isValidRoute = isValidParqueaderoCambiadero(departure, arrival)
-
-          if (isValidRoute) {
-            trips.push({
-              asset,
-              origin: departure,
-              destination: arrival,
-              totalDistance: distance,
-              startRowIndex: currentRowIndex,
-              endRowIndex: currentRowIndex,
-              date: currentRow[headers.findIndex((h) => h.toLowerCase().includes("date"))] || undefined,
-              driver: currentRow[headers.findIndex((h) => h.toLowerCase().includes("driver"))] || undefined,
-              intermediateRows: [],
-            })
-          }
-          i++
-        }
-        // Caso 2: Inicio de trayecto fragmentado (solo origen, sin destino)
-        else if (departure && !arrival) {
-          const fragmentedTrip = processFragmentedTripFromOrigin(data, asset, rowIndexes, i, departure)
-          if (fragmentedTrip) {
-            trips.push(fragmentedTrip)
-            // Avanzar al siguiente segmento no procesado
-            i = rowIndexes.findIndex((idx) => idx > fragmentedTrip.endRowIndex)
-            if (i === -1) break
-          } else {
-            i++
-          }
-        }
-        // Caso 3: Inicio de trayecto fragmentado (solo destino, sin origen)
-        else if (!departure && arrival) {
-          const fragmentedTrip = processFragmentedTripFromDestination(data, asset, rowIndexes, i, arrival)
-          if (fragmentedTrip) {
-            trips.push(fragmentedTrip)
-            // Avanzar al siguiente segmento no procesado
-            i = rowIndexes.findIndex((idx) => idx > fragmentedTrip.endRowIndex)
-            if (i === -1) break
-          } else {
-            i++
-          }
-        }
-        // Caso 4: Segmento intermedio (ni origen ni destino definidos)
-        else {
-          i++
-        }
-      }
-    })
-
-    return trips
-  }
-
-  // Función auxiliar para procesar trayectos fragmentados que inician con origen
+  // Función auxiliar para procesar trayectos fragmentados que inician con origen (MEJORADA)
   const processFragmentedTripFromOrigin = (
     data: string[][],
     asset: string,
@@ -467,8 +608,9 @@ export default function CSVAnalyzer() {
       }
     }
 
-    // Verificar si el trayecto es válido
-    if (destination && isValidParqueaderoCambiadero(origin, destination)) {
+    // Verificar si el trayecto es válido usando la función estricta
+    const validation = isValidParqueaderoCambiaderoStrict(origin, destination)
+    if (validation.isValid) {
       return {
         asset,
         origin,
@@ -480,12 +622,13 @@ export default function CSVAnalyzer() {
         driver: startDriver,
         intermediateRows,
       }
-    }
-
+    } else {
+      console.log(`Trayecto fragmentado rechazado para ${asset}: ${validation.reason}`)
     return null
+    }
   }
 
-  // Función auxiliar para procesar trayectos fragmentados que inician con destino
+  // Función auxiliar para procesar trayectos fragmentados que inician con destino (MEJORADA)
   const processFragmentedTripFromDestination = (
     data: string[][],
     asset: string,
@@ -525,8 +668,9 @@ export default function CSVAnalyzer() {
       }
     }
 
-    // Verificar si el trayecto es válido
-    if (origin && isValidParqueaderoCambiadero(origin, destination)) {
+    // Verificar si el trayecto es válido usando la función estricta
+    const validation = isValidParqueaderoCambiaderoStrict(origin, destination)
+    if (validation.isValid) {
       return {
         asset,
         origin,
@@ -538,23 +682,196 @@ export default function CSVAnalyzer() {
         driver: endDriver,
         intermediateRows,
       }
+    } else {
+      console.log(`Trayecto fragmentado rechazado para ${asset}: ${validation.reason}`)
+      return null
+    }
+  }
+
+  // Nueva función para procesar trayectos completos y fragmentados (MEJORADA CON VALIDACIÓN ESTRICTA)
+  const processTripsAdvanced = (data: string[][]): ProcessedTrip[] => {
+    const trips: ProcessedTrip[] = []
+    const assetGroups: Record<string, number[]> = {}
+    const rejectedTrips: Array<{ asset: string; reason: string; origin?: string; destination?: string }> = []
+    const acceptedTrips: Array<{ asset: string; route: string; direction: string; type: string }> = []
+
+    // Agrupar filas por activo manteniendo el orden
+    data.forEach((row, index) => {
+      const asset = row[columnMappings.assetExtra] || "Unknown"
+      if (!assetGroups[asset]) {
+        assetGroups[asset] = []
+      }
+      assetGroups[asset].push(index)
+    })
+
+    // Procesar cada activo individualmente
+    Object.entries(assetGroups).forEach(([asset, rowIndexes]) => {
+      let i = 0
+
+      while (i < rowIndexes.length) {
+        const currentRowIndex = rowIndexes[i]
+        const currentRow = data[currentRowIndex]
+
+        const departure = normalizeLocation(currentRow[columnMappings.deparfrom])
+        const arrival = normalizeLocation(currentRow[columnMappings.arriveat])
+        const distance = Number.parseFloat(currentRow[columnMappings.distance]) || 0
+
+        // Caso 1: Trayecto completo en una sola fila
+        if (departure && arrival && departure !== arrival) {
+          const validation = isValidParqueaderoCambiaderoStrict(departure, arrival)
+          const route = `${departure} → ${arrival}`
+
+          if (validation.isValid) {
+            trips.push({
+              asset,
+              origin: departure,
+              destination: arrival,
+              totalDistance: distance,
+              startRowIndex: currentRowIndex,
+              endRowIndex: currentRowIndex,
+              date: currentRow[headers.findIndex((h) => h.toLowerCase().includes("date"))] || undefined,
+              driver: currentRow[headers.findIndex((h) => h.toLowerCase().includes("driver"))] || undefined,
+              intermediateRows: [],
+            })
+            
+            acceptedTrips.push({
+              asset,
+              route,
+              direction: validation.direction,
+              type: "Completo"
+            })
+            
+            console.log(`✅ Trayecto completo aceptado para ${asset}: ${departure} → ${arrival} (${validation.direction})`)
+          } else {
+            rejectedTrips.push({
+              asset,
+              reason: validation.reason || "Trayecto no válido",
+              origin: departure,
+              destination: arrival
+            })
+            console.log(`❌ Trayecto completo rechazado para ${asset}: ${departure} → ${arrival} - ${validation.reason}`)
+          }
+          i++
+        }
+        // Caso 2: Inicio de trayecto fragmentado (solo origen, sin destino)
+        else if (departure && !arrival) {
+          const fragmentedTrip = processFragmentedTripFromOrigin(data, asset, rowIndexes, i, departure)
+          if (fragmentedTrip) {
+            trips.push(fragmentedTrip)
+            const route = `${fragmentedTrip.origin} → ${fragmentedTrip.destination}`
+            const validation = isValidParqueaderoCambiaderoStrict(fragmentedTrip.origin, fragmentedTrip.destination)
+            
+            acceptedTrips.push({
+              asset,
+              route,
+              direction: validation.direction,
+              type: "Fragmentado (desde origen)"
+            })
+            
+            console.log(`✅ Trayecto fragmentado (desde origen) aceptado para ${asset}: ${fragmentedTrip.origin} → ${fragmentedTrip.destination}`)
+            // Avanzar al siguiente segmento no procesado
+            i = rowIndexes.findIndex((idx) => idx > fragmentedTrip.endRowIndex)
+            if (i === -1) break
+          } else {
+            rejectedTrips.push({
+              asset,
+              reason: "Trayecto fragmentado desde origen no válido",
+              origin: departure
+            })
+            console.log(`❌ Trayecto fragmentado rechazado para ${asset}: origen ${departure}`)
+            i++
+          }
+        }
+        // Caso 3: Inicio de trayecto fragmentado (solo destino, sin origen)
+        else if (!departure && arrival) {
+          const fragmentedTrip = processFragmentedTripFromDestination(data, asset, rowIndexes, i, arrival)
+          if (fragmentedTrip) {
+            trips.push(fragmentedTrip)
+            const route = `${fragmentedTrip.origin} → ${fragmentedTrip.destination}`
+            const validation = isValidParqueaderoCambiaderoStrict(fragmentedTrip.origin, fragmentedTrip.destination)
+            
+            acceptedTrips.push({
+              asset,
+              route,
+              direction: validation.direction,
+              type: "Fragmentado (desde destino)"
+            })
+            
+            console.log(`✅ Trayecto fragmentado (desde destino) aceptado para ${asset}: ${fragmentedTrip.origin} → ${fragmentedTrip.destination}`)
+            // Avanzar al siguiente segmento no procesado
+            i = rowIndexes.findIndex((idx) => idx > fragmentedTrip.endRowIndex)
+            if (i === -1) break
+          } else {
+            rejectedTrips.push({
+              asset,
+              reason: "Trayecto fragmentado desde destino no válido",
+              destination: arrival
+            })
+            console.log(`❌ Trayecto fragmentado rechazado para ${asset}: destino ${arrival}`)
+            i++
+          }
+        }
+        // Caso 4: Segmento intermedio (ni origen ni destino definidos)
+        else {
+          rejectedTrips.push({
+            asset,
+            reason: "Segmento intermedio sin origen ni destino válidos"
+          })
+          console.log(`⚠️ Segmento intermedio ignorado para ${asset}`)
+          i++
+        }
+      }
+    })
+
+    // Actualizar el estado de validación para mostrar en UI
+    setValidationResults({
+      acceptedTrips,
+      rejectedTrips: rejectedTrips.map(trip => ({
+        asset: trip.asset,
+        route: trip.origin && trip.destination ? `${trip.origin} → ${trip.destination}` : 
+               trip.origin ? `Origen: ${trip.origin}` : 
+               trip.destination ? `Destino: ${trip.destination}` : "Segmento incompleto",
+        reason: trip.reason,
+        type: "Rechazado"
+      })),
+      totalProcessed: acceptedTrips.length + rejectedTrips.length
+    })
+
+    // Mostrar resumen de validación
+    console.log(`=== RESUMEN DE VALIDACIÓN ESTRICTA ===`)
+    console.log(`✅ Trayectos aceptados: ${trips.length}`)
+    console.log(`❌ Trayectos rechazados: ${rejectedTrips.length}`)
+    console.log(`📊 Total procesado: ${acceptedTrips.length + rejectedTrips.length}`)
+    console.log(`📈 Tasa de éxito: ${((trips.length / (acceptedTrips.length + rejectedTrips.length)) * 100).toFixed(2)}%`)
+    
+    if (rejectedTrips.length > 0) {
+      console.log(`📋 Razones de rechazo:`)
+      const rejectionReasons = rejectedTrips.reduce((acc, trip) => {
+        acc[trip.reason] = (acc[trip.reason] || 0) + 1
+        return acc
+      }, {} as Record<string, number>)
+      
+      Object.entries(rejectionReasons).forEach(([reason, count]) => {
+        console.log(`  - ${reason}: ${count} casos`)
+      })
     }
 
-    return null
+    return trips
   }
 
-  // Modificar la función isValidParqueaderoCambiadero para ser más explícita
-  const isValidParqueaderoCambiadero = (origin: string, destination: string): boolean => {
-    const isOriginParqueadero = origin.startsWith("Parqueadero")
-    const isOriginCambiadero = origin.startsWith("Cambiadero")
-    const isDestinationParqueadero = destination.startsWith("Parqueadero")
-    const isDestinationCambiadero = destination.startsWith("Cambiadero")
-
-    // Solo permitir rutas Parqueadero → Cambiadero o Cambiadero → Parqueadero
-    return (isOriginParqueadero && isDestinationCambiadero) || (isOriginCambiadero && isDestinationParqueadero)
+  // Función mejorada para determinar dirección del viaje con validación estricta
+  const getTripDirectionStrict = (departure: string, arrival: string): { 
+    direction: "Ida" | "Vuelta" | "Inválido"; 
+    isValid: boolean; 
+    reason?: string 
+  } => {
+    const validation = isValidParqueaderoCambiaderoStrict(departure, arrival)
+    return {
+      direction: validation.direction,
+      isValid: validation.isValid,
+      reason: validation.reason
+    }
   }
-
-  // Añadir una nueva función para generar el resumen consolidado
 
   // Función para formatear números en formato colombiano
   const formatColombianNumber = (number: number, decimals = 2): string => {
@@ -562,6 +879,164 @@ export default function CSVAnalyzer() {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
     })
+  }
+
+  // Función para crear clave unificada de ruta (MEJORADA)
+  const createUnifiedRouteKey = (departure: string, arrival: string): string => {
+    // Primero validar que sea una ruta válida
+    const validation = isValidParqueaderoCambiaderoStrict(departure, arrival)
+    if (!validation.isValid) {
+      return `INVÁLIDO: ${departure} → ${arrival}`
+    }
+
+    // Extraer nombres base sin "Parqueadero" o "Cambiadero"
+    const depBase = departure.replace(/^(Parqueadero|Cambiadero)\s+/, "")
+    const arrBase = arrival.replace(/^(Parqueadero|Cambiadero)\s+/, "")
+
+    // Ordenar alfabéticamente para unificar rutas bidireccionales
+    const [first, second] = [depBase, arrBase].sort()
+    return `${first} ↔ ${second}`
+  }
+
+  // Define calculateRoutes function (MEJORADA CON VALIDACIÓN ESTRICTA)
+  function calculateRoutes() {
+    const departureIndex = headers.findIndex((h) => h.toLowerCase() === "deparfrom")
+    const arrivalIndex = headers.findIndex((h) => h.toLowerCase() === "arriveat")
+    const distanceIndex = headers.findIndex((h) => h.toLowerCase() === "distance")
+    const assetIndex = headers.findIndex((h) => h.toLowerCase() === "assetextra")
+    const typeIndex = headers.findIndex((h) => h.toLowerCase() === "tipotrayecto")
+
+    if (departureIndex === -1 || arrivalIndex === -1 || distanceIndex === -1) {
+      return []
+    }
+
+    const unifiedRoutes: Record<
+      string,
+      {
+        count: number
+        totalDistance: number
+        assets: Set<string>
+        trips: Array<{
+          asset: string
+          distance: number
+          date?: string
+          type: string
+          originalRows?: string
+          direction: string
+          fullRoute: string
+        }>
+        completeTrips: number
+        fragmentedTrips: number
+        outboundTrips: number // Parqueadero → Cambiadero
+        returnTrips: number // Cambiadero → Parqueadero
+        outboundDistance: number
+        returnDistance: number
+        validTrips: number
+        invalidTrips: number
+      }
+    > = {}
+
+    let totalValidTrips = 0
+    let totalInvalidTrips = 0
+
+    csvData.forEach((row) => {
+      const departure = row[departureIndex]
+      const arrival = row[arrivalIndex]
+      const asset = assetIndex !== -1 ? row[assetIndex] : "Desconocido"
+      const date = row[headers.findIndex((h) => h.toLowerCase().includes("date"))] || undefined
+      const distance = Number.parseFloat(row[distanceIndex]) || 0
+      const tripType = typeIndex !== -1 ? row[typeIndex] : "Desconocido"
+      const originalRows = row[headers.findIndex((h) => h.toLowerCase().includes("filas"))] || ""
+
+      // Validación estricta del viaje
+      const validation = getTripDirectionStrict(departure, arrival)
+      const fullRoute = `${departure} → ${arrival}`
+
+      if (!validation.isValid) {
+        totalInvalidTrips++
+        console.log(`Viaje rechazado: ${fullRoute} - ${validation.reason}`)
+        return // Skip invalid trips
+      }
+
+      totalValidTrips++
+      const direction = validation.direction
+      const unifiedKey = createUnifiedRouteKey(departure, arrival)
+
+      if (!unifiedRoutes[unifiedKey]) {
+        unifiedRoutes[unifiedKey] = {
+          count: 0,
+          totalDistance: 0,
+          assets: new Set(),
+          trips: [],
+          completeTrips: 0,
+          fragmentedTrips: 0,
+          outboundTrips: 0,
+          returnTrips: 0,
+          outboundDistance: 0,
+          returnDistance: 0,
+          validTrips: 0,
+          invalidTrips: 0,
+        }
+      }
+
+      const route = unifiedRoutes[unifiedKey]
+
+      // Actualizar contadores generales
+      route.count += 1
+      route.totalDistance += distance
+      route.assets.add(asset)
+      route.validTrips += 1
+      route.trips.push({
+        asset,
+        distance,
+        date,
+        type: tripType,
+        originalRows,
+        direction,
+        fullRoute,
+      })
+
+      // Actualizar contadores por tipo de trayecto
+      if (tripType === "Completo") {
+        route.completeTrips += 1
+      } else if (tripType === "Fragmentado") {
+        route.fragmentedTrips += 1
+      }
+
+      // Actualizar contadores por dirección (validación estricta garantiza que direction sea "Ida" o "Vuelta")
+      if (direction === "Ida") {
+        route.outboundTrips += 1
+        route.outboundDistance += distance
+      } else if (direction === "Vuelta") {
+        route.returnTrips += 1
+        route.returnDistance += distance
+      }
+    })
+
+    console.log(`=== RESUMEN DE ANÁLISIS DE RUTAS ===`)
+    console.log(`Total viajes válidos procesados: ${totalValidTrips}`)
+    console.log(`Total viajes inválidos rechazados: ${totalInvalidTrips}`)
+    console.log(`Rutas únicas válidas encontradas: ${Object.keys(unifiedRoutes).length}`)
+
+    // Convertir a array y ordenar por frecuencia
+    return Object.entries(unifiedRoutes)
+      .filter(([route]) => !route.startsWith("INVÁLIDO")) // Filtrar rutas inválidas
+      .map(([route, data]) => ({
+        route,
+        count: data.count,
+        totalDistance: data.totalDistance,
+        averageDistance: data.totalDistance / data.count,
+        uniqueAssets: data.assets.size,
+        assets: Array.from(data.assets),
+        trips: data.trips,
+        completeTrips: data.completeTrips,
+        fragmentedTrips: data.fragmentedTrips,
+        outboundTrips: data.outboundTrips,
+        returnTrips: data.returnTrips,
+        outboundDistance: data.outboundDistance,
+        returnDistance: data.returnDistance,
+      }))
+      .sort((a, b) => b.count - a.count)
   }
 
   const generateConsolidatedSummaryData = () => {
@@ -575,6 +1050,8 @@ export default function CSVAnalyzer() {
         parqueaderoToCambiadero: { trips: 0, distance: 0, completeTrips: 0, fragmentedTrips: 0 },
         cambiaderoToParqueadero: { trips: 0, distance: 0, completeTrips: 0, fragmentedTrips: 0 },
         total: { trips: 0, distance: 0, completeTrips: 0, fragmentedTrips: 0 },
+        invalidTrips: 0,
+        validationRate: 0
       }
     }
 
@@ -583,20 +1060,30 @@ export default function CSVAnalyzer() {
       parqueaderoToCambiadero: { trips: 0, distance: 0, completeTrips: 0, fragmentedTrips: 0 },
       cambiaderoToParqueadero: { trips: 0, distance: 0, completeTrips: 0, fragmentedTrips: 0 },
       total: { trips: 0, distance: 0, completeTrips: 0, fragmentedTrips: 0 },
+      invalidTrips: 0,
+      validationRate: 0
     }
 
-    // Procesar cada fila
+    let totalProcessed = 0
+
+    // Procesar cada fila con validación estricta
     csvData.forEach((row) => {
+      totalProcessed++
       const departure = row[departureIndex]
       const arrival = row[arrivalIndex]
       const distance = Number.parseFloat(row[distanceIndex]) || 0
       const tripType = typeIndex !== -1 ? row[typeIndex] : "Desconocido"
 
-      const isOriginParqueadero = departure.startsWith("Parqueadero")
-      const isDestinationCambiadero = arrival.startsWith("Cambiadero")
+      // Aplicar validación estricta
+      const validation = getTripDirectionStrict(departure, arrival)
 
-      // Determinar dirección del viaje
-      if (isOriginParqueadero && isDestinationCambiadero) {
+      if (!validation.isValid) {
+        summary.invalidTrips++
+        return // Skip invalid trips
+      }
+
+      // Clasificar según dirección validada estrictamente
+      if (validation.direction === "Ida") {
         // Parqueadero → Cambiadero
         summary.parqueaderoToCambiadero.trips += 1
         summary.parqueaderoToCambiadero.distance += distance
@@ -605,7 +1092,7 @@ export default function CSVAnalyzer() {
         } else if (tripType === "Fragmentado") {
           summary.parqueaderoToCambiadero.fragmentedTrips += 1
         }
-      } else {
+      } else if (validation.direction === "Vuelta") {
         // Cambiadero → Parqueadero
         summary.cambiaderoToParqueadero.trips += 1
         summary.cambiaderoToParqueadero.distance += distance
@@ -625,6 +1112,9 @@ export default function CSVAnalyzer() {
         summary.total.fragmentedTrips += 1
       }
     })
+
+    // Calcular tasa de validación
+    summary.validationRate = totalProcessed > 0 ? ((summary.total.trips / totalProcessed) * 100) : 0
 
     return summary
   }
@@ -811,44 +1301,8 @@ export default function CSVAnalyzer() {
     return Array.from(locations).sort()
   }
 
-  // Crear datos para el mapa de rutas
-  // const getRouteMapData = () => {
-  //   const departureIndex = headers.findIndex((h) => h.toLowerCase() === "deparfrom")
-  //   const arrivalIndex = headers.findIndex((h) => h.toLowerCase() === "arriveat")
-  //   const distanceIndex = headers.findIndex((h) => h.toLowerCase() === "distance")
-
-  //   if (departureIndex === -1 || arrivalIndex === -1 || distanceIndex === -1) return []
-
-  //   const routeMap: Record<string, { count: number; totalDistance: number }> = {}
-
-  //   csvData.forEach((row) => {
-  //     const departure = row[departureIndex]
-  //     const arrival = row[arrivalIndex]
-  //     const routeKey = `${departure}-${arrival}`
-  //     const distance = Number.parseFloat(row[distanceIndex]) || 0
-
-  //     if (!routeMap[routeKey]) {
-  //       routeMap[routeKey] = { count: 0, totalDistance: 0 }
-  //     }
-
-  //     routeMap[routeKey].count += 1
-  //     routeMap[routeKey].totalDistance += distance
-  //   })
-
-  //   return Object.entries(routeMap).map(([key, data]) => {
-  //     const [departure, arrival] = key.split("-")
-  //     return {
-  //       departure,
-  //       arrival,
-  //       count: data.count,
-  //       totalDistance: data.totalDistance,
-  //     }
-  //   })
-  // }
-
   // Memoizar los cálculos costosos para mejorar el rendimiento
   const locations = useMemo(() => getUniqueLocations(), [csvData, headers])
-  // const routeMapData = useMemo(() => getRouteMapData(), [csvData, headers])
   const routes = useMemo(() => calculateRoutes(), [csvData, headers])
 
   // Función para exportar datos a CSV
@@ -1596,8 +2050,8 @@ export default function CSVAnalyzer() {
                   {/* Resumen Consolidado */}
                   {csvData.length > 0 && (
                     <div className="mb-6">
-                      <h3 className="text-lg font-semibold mb-3">Resumen Consolidado de Trayectos</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <h3 className="text-lg font-semibold mb-3">Resumen Consolidado de Trayectos (Validación Estricta)</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         {/* Parqueadero → Cambiadero */}
                         <Card className="border-2 border-green-200">
                           <CardHeader className="py-3">
@@ -1698,6 +2152,40 @@ export default function CSVAnalyzer() {
                             <div className="flex justify-between mt-2 text-xs text-muted-foreground">
                               <span>{generateConsolidatedSummaryData().total.completeTrips} completos</span>
                               <span>{generateConsolidatedSummaryData().total.fragmentedTrips} fragmentados</span>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Validación Estricta */}
+                        <Card className="border-2 border-orange-200">
+                          <CardHeader className="py-3">
+                            <CardTitle className="text-base flex items-center">
+                              <Check className="mr-2 h-4 w-4 text-orange-600" />
+                              Validación Estricta
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="py-2">
+                            <div className="grid grid-cols-1 gap-2">
+                              <div className="text-center">
+                                <p className="text-sm text-muted-foreground">Tasa de Éxito</p>
+                                <p className="text-xl font-bold text-orange-600">
+                                  {generateConsolidatedSummaryData().validationRate.toFixed(1)}%
+                                </p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-sm text-muted-foreground">Rechazados</p>
+                                <p className="text-lg font-bold text-red-600">
+                                  {generateConsolidatedSummaryData().invalidTrips}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="mt-2 text-center">
+                              <Badge 
+                                variant={generateConsolidatedSummaryData().validationRate >= 80 ? "default" : "destructive"}
+                                className="text-xs"
+                              >
+                                {generateConsolidatedSummaryData().validationRate >= 80 ? "✅ Excelente" : "⚠️ Revisar"}
+                              </Badge>
                             </div>
                           </CardContent>
                         </Card>
@@ -1893,6 +2381,191 @@ export default function CSVAnalyzer() {
                   </CardContent>
                 </Card>
               )}
+
+              {/* Panel de Validación Estricta */}
+              {validationResults.totalProcessed > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Check className="h-5 w-5 text-green-600" />
+                      Panel de Validación Estricta en Tiempo Real
+                    </CardTitle>
+                    <CardDescription>
+                      Resultado detallado del procesamiento con validaciones estrictas Parqueadero ↔ Cambiadero
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-6">
+                      {/* Métricas de validación */}
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <Card className="border-2 border-green-200 bg-green-50">
+                          <CardContent className="p-4 text-center">
+                            <p className="text-sm text-muted-foreground">Trayectos Aceptados</p>
+                            <p className="text-2xl font-bold text-green-600">{validationResults.acceptedTrips.length}</p>
+                            <p className="text-xs text-green-700">
+                              {((validationResults.acceptedTrips.length / validationResults.totalProcessed) * 100).toFixed(1)}% del total
+                            </p>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="border-2 border-red-200 bg-red-50">
+                          <CardContent className="p-4 text-center">
+                            <p className="text-sm text-muted-foreground">Trayectos Rechazados</p>
+                            <p className="text-2xl font-bold text-red-600">{validationResults.rejectedTrips.length}</p>
+                            <p className="text-xs text-red-700">
+                              {((validationResults.rejectedTrips.length / validationResults.totalProcessed) * 100).toFixed(1)}% del total
+                            </p>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="border-2 border-blue-200 bg-blue-50">
+                          <CardContent className="p-4 text-center">
+                            <p className="text-sm text-muted-foreground">Viajes de Ida</p>
+                            <p className="text-2xl font-bold text-blue-600">
+                              {validationResults.acceptedTrips.filter(trip => trip.direction === "Ida").length}
+                            </p>
+                            <p className="text-xs text-blue-700">Parqueadero → Cambiadero</p>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="border-2 border-purple-200 bg-purple-50">
+                          <CardContent className="p-4 text-center">
+                            <p className="text-sm text-muted-foreground">Viajes de Vuelta</p>
+                            <p className="text-2xl font-bold text-purple-600">
+                              {validationResults.acceptedTrips.filter(trip => trip.direction === "Vuelta").length}
+                            </p>
+                            <p className="text-xs text-purple-700">Cambiadero → Parqueadero</p>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      <Tabs defaultValue="accepted" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="accepted" className="flex items-center gap-2">
+                            <Check className="h-4 w-4" />
+                            Aceptados ({validationResults.acceptedTrips.length})
+                          </TabsTrigger>
+                          <TabsTrigger value="rejected" className="flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4" />
+                            Rechazados ({validationResults.rejectedTrips.length})
+                          </TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="accepted" className="mt-4">
+                          <ScrollArea className="h-[300px] pr-4">
+                            <div className="space-y-2">
+                              {validationResults.acceptedTrips.map((trip, index) => (
+                                <div key={index} className="flex items-center justify-between p-3 border rounded-md bg-green-50 border-green-200">
+                                  <div className="flex items-center gap-3">
+                                    <Check className="h-4 w-4 text-green-600" />
+                                    <div>
+                                      <p className="font-medium text-sm">{trip.asset}</p>
+                                      <p className="text-xs text-muted-foreground">{trip.route}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Badge variant={trip.direction === "Ida" ? "default" : "secondary"}>
+                                      {trip.direction === "Ida" ? "🚛 Ida" : "🔄 Vuelta"}
+                                    </Badge>
+                                    <Badge variant="outline" className="text-xs">
+                                      {trip.type}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              ))}
+                              {validationResults.acceptedTrips.length === 0 && (
+                                <div className="text-center py-8 text-muted-foreground">
+                                  No hay trayectos aceptados aún
+                                </div>
+                              )}
+                            </div>
+                          </ScrollArea>
+                        </TabsContent>
+
+                        <TabsContent value="rejected" className="mt-4">
+                          <ScrollArea className="h-[300px] pr-4">
+                            <div className="space-y-2">
+                              {validationResults.rejectedTrips.map((trip, index) => (
+                                <div key={index} className="flex items-center justify-between p-3 border rounded-md bg-red-50 border-red-200">
+                                  <div className="flex items-center gap-3">
+                                    <AlertTriangle className="h-4 w-4 text-red-600" />
+                                    <div>
+                                      <p className="font-medium text-sm">{trip.asset}</p>
+                                      <p className="text-xs text-muted-foreground">{trip.route}</p>
+                                      <p className="text-xs text-red-600 mt-1">{trip.reason}</p>
+                                    </div>
+                                  </div>
+                                  <Badge variant="destructive" className="text-xs">
+                                    {trip.type}
+                                  </Badge>
+                                </div>
+                              ))}
+                              {validationResults.rejectedTrips.length === 0 && (
+                                <div className="text-center py-8 text-muted-foreground">
+                                  ¡Excelente! Todos los trayectos fueron aceptados
+                                </div>
+                              )}
+                            </div>
+                          </ScrollArea>
+                        </TabsContent>
+                      </Tabs>
+
+                      {/* Resumen de razones de rechazo */}
+                      {validationResults.rejectedTrips.length > 0 && (
+                        <div className="mt-4">
+                          <h4 className="text-sm font-medium mb-3">Razones principales de rechazo:</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {Object.entries(
+                              validationResults.rejectedTrips.reduce((acc, trip) => {
+                                acc[trip.reason] = (acc[trip.reason] || 0) + 1
+                                return acc
+                              }, {} as Record<string, number>)
+                            ).map(([reason, count]) => (
+                              <div key={reason} className="flex justify-between items-center p-2 bg-muted rounded text-sm">
+                                <span className="text-muted-foreground">{reason}</span>
+                                <Badge variant="outline">{count}</Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <Alert>
+                        <Info className="h-4 w-4" />
+                        <AlertTitle>Validación Estricta Activa</AlertTitle>
+                        <AlertDescription>
+                          El sistema aplica validaciones estrictas que solo aceptan trayectos válidos entre:
+                          <br />• <strong>Parqueadero → Cambiadero</strong> (Ida)
+                          <br />• <strong>Cambiadero → Parqueadero</strong> (Vuelta)
+                          <br />Cualquier otro tipo de trayecto es automáticamente rechazado.
+                        </AlertDescription>
+                      </Alert>
+
+                      {/* Sección de Restricciones Específicas */}
+                      <Alert variant="destructive">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle>Restricciones Específicas de Rutas</AlertTitle>
+                        <AlertDescription>
+                          <p className="mb-2">Las siguientes rutas están específicamente prohibidas:</p>
+                          <div className="space-y-1 text-sm">
+                            {ROUTE_RESTRICTIONS.map((restriction, index) => (
+                              <div key={index} className="flex items-center gap-2 p-2 bg-red-50 rounded border-l-4 border-red-400">
+                                <span className="text-red-600">🚫</span>
+                                <span className="font-mono text-xs">
+                                  {restriction.origin} → {restriction.destination}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                          <p className="mt-2 text-xs opacity-75">
+                            Estas restricciones se aplican independientemente del tipo de ubicación.
+                          </p>
+                        </AlertDescription>
+                      </Alert>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </motion.div>
         </TabsContent>
@@ -2042,152 +2715,4 @@ export default function CSVAnalyzer() {
       </Tabs>
     </div>
   )
-
-  // Define calculateRoutes function
-  function calculateRoutes() {
-    const departureIndex = headers.findIndex((h) => h.toLowerCase() === "deparfrom")
-    const arrivalIndex = headers.findIndex((h) => h.toLowerCase() === "arriveat")
-    const distanceIndex = headers.findIndex((h) => h.toLowerCase() === "distance")
-    const assetIndex = headers.findIndex((h) => h.toLowerCase() === "assetextra")
-    const typeIndex = headers.findIndex((h) => h.toLowerCase() === "tipotrayecto")
-
-    if (departureIndex === -1 || arrivalIndex === -1 || distanceIndex === -1) {
-      return []
-    }
-
-    // Función para formatear números en formato colombiano
-    const formatColombianNumber = (number: number, decimals = 2): string => {
-      return number.toLocaleString("es-CO", {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals,
-      })
-    }
-
-    // Función para crear clave unificada de ruta
-    const createUnifiedRouteKey = (departure: string, arrival: string): string => {
-      // Extraer nombres base sin "Parqueadero" o "Cambiadero"
-      const depBase = departure.replace(/^(Parqueadero|Cambiadero)\s+/, "")
-      const arrBase = arrival.replace(/^(Parqueadero|Cambiadero)\s+/, "")
-
-      // Ordenar alfabéticamente para unificar rutas bidireccionales
-      const [first, second] = [depBase, arrBase].sort()
-      return `${first} ↔ ${second}`
-    }
-
-    // Función para determinar dirección del viaje
-    const getTripDirection = (departure: string, arrival: string): string => {
-      const isOriginParqueadero = departure.startsWith("Parqueadero")
-      const isDestinationCambiadero = arrival.startsWith("Cambiadero")
-
-      if (isOriginParqueadero && isDestinationCambiadero) {
-        return "Ida" // Parqueadero → Cambiadero
-      } else {
-        return "Vuelta" // Cambiadero → Parqueadero
-      }
-    }
-
-    const unifiedRoutes: Record<
-      string,
-      {
-        count: number
-        totalDistance: number
-        assets: Set<string>
-        trips: Array<{
-          asset: string
-          distance: number
-          date?: string
-          type: string
-          originalRows?: string
-          direction: string
-          fullRoute: string
-        }>
-        completeTrips: number
-        fragmentedTrips: number
-        outboundTrips: number // Parqueadero → Cambiadero
-        returnTrips: number // Cambiadero → Parqueadero
-        outboundDistance: number
-        returnDistance: number
-      }
-    > = {}
-
-    csvData.forEach((row) => {
-      const departure = row[departureIndex]
-      const arrival = row[arrivalIndex]
-      const asset = assetIndex !== -1 ? row[assetIndex] : "Desconocido"
-      const date = row[headers.findIndex((h) => h.toLowerCase().includes("date"))] || undefined
-      const distance = Number.parseFloat(row[distanceIndex]) || 0
-      const tripType = typeIndex !== -1 ? row[typeIndex] : "Desconocido"
-      const originalRows = row[headers.findIndex((h) => h.toLowerCase().includes("filas"))] || ""
-
-      const unifiedKey = createUnifiedRouteKey(departure, arrival)
-      const direction = getTripDirection(departure, arrival)
-      const fullRoute = `${departure} → ${arrival}`
-
-      if (!unifiedRoutes[unifiedKey]) {
-        unifiedRoutes[unifiedKey] = {
-          count: 0,
-          totalDistance: 0,
-          assets: new Set(),
-          trips: [],
-          completeTrips: 0,
-          fragmentedTrips: 0,
-          outboundTrips: 0,
-          returnTrips: 0,
-          outboundDistance: 0,
-          returnDistance: 0,
-        }
-      }
-
-      const route = unifiedRoutes[unifiedKey]
-
-      // Actualizar contadores generales
-      route.count += 1
-      route.totalDistance += distance
-      route.assets.add(asset)
-      route.trips.push({
-        asset,
-        distance,
-        date,
-        type: tripType,
-        originalRows,
-        direction,
-        fullRoute,
-      })
-
-      // Actualizar contadores por tipo de trayecto
-      if (tripType === "Completo") {
-        route.completeTrips += 1
-      } else if (tripType === "Fragmentado") {
-        route.fragmentedTrips += 1
-      }
-
-      // Actualizar contadores por dirección
-      if (direction === "Ida") {
-        route.outboundTrips += 1
-        route.outboundDistance += distance
-      } else {
-        route.returnTrips += 1
-        route.returnDistance += distance
-      }
-    })
-
-    // Convertir a array y ordenar por frecuencia
-    return Object.entries(unifiedRoutes)
-      .map(([route, data]) => ({
-        route,
-        count: data.count,
-        totalDistance: data.totalDistance,
-        averageDistance: data.totalDistance / data.count,
-        uniqueAssets: data.assets.size,
-        assets: Array.from(data.assets),
-        trips: data.trips,
-        completeTrips: data.completeTrips,
-        fragmentedTrips: data.fragmentedTrips,
-        outboundTrips: data.outboundTrips,
-        returnTrips: data.returnTrips,
-        outboundDistance: data.outboundDistance,
-        returnDistance: data.returnDistance,
-      }))
-      .sort((a, b) => b.count - a.count)
-  }
 }
