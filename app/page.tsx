@@ -205,7 +205,29 @@ const ROUTE_RESTRICTIONS = [
     origin: "Parqueadero Fonseca", 
     destination: "Cambiadero Annex",
     reason: "❌ Ruta no permitida: Parqueadero Fonseca no debe conectar con Cambiadero Annex"
-  }
+  },
+  {
+    origin: "Parqueadero Alojamiento",
+    destination: "Cambiadero Annex",
+    reason: "❌ Ruta no permitida: Parqueadero Alojamiento no debe conectar con Cambiadero Annex"
+  },
+  {
+    origin: "Cambiadero Annex",
+    destination: "Parqueadero Alojamiento",
+    reason: "❌ Ruta no permitida: Cambiadero Annex no debe conectar con Parqueadero Alojamiento"
+  },
+  {
+    origin: "Parqueadero San Juan",
+    destination: "Cambiadero Annex",
+    reason: "❌ Ruta no permitida: Parqueadero San Juan no debe conectar con Cambiadero Annex"
+  },
+  {
+    origin: "Cambiadero Annex",
+    destination: "Parqueadero San Juan",
+    reason: "❌ Ruta no permitida: Cambiadero Annex no debe conectar con Parqueadero San Juan"
+  },
+  
+
 ]
 
 // Función para verificar restricciones específicas de rutas
@@ -568,6 +590,25 @@ export default function CSVAnalyzer() {
     setColumnMappings(mapping)
   }
 
+  // Helpers para lógica de Annex y vuelta
+  const ANNEX_FINAL_DEST = "Cambiadero Annex"
+  const ANNEX_INTERMEDIATE_STOPS = ["Parqueadero San Juan", "Parqueadero Fonseca"]
+  const ANNEX_ORIGINS = ["Parqueadero Urumita", "Parqueadero Valledupar", "Parqueadero Waya"]
+  const ANNEX_RETURN_DESTS = ["Parqueadero Urumita", "Parqueadero Valledupar", "Parqueadero Waya"]
+
+  function isAnnexOrigin(location: string) {
+    return ANNEX_ORIGINS.includes(location)
+  }
+  function isAnnexIntermediateStop(location: string) {
+    return ANNEX_INTERMEDIATE_STOPS.includes(location)
+  }
+  function isAnnexFinalDest(location: string) {
+    return location === ANNEX_FINAL_DEST
+  }
+  function isAnnexReturnDest(location: string) {
+    return ANNEX_RETURN_DESTS.includes(location)
+  }
+
   // Función auxiliar para procesar trayectos fragmentados que inician con origen (MEJORADA)
   const processFragmentedTripFromOrigin = (
     data: string[][],
@@ -601,10 +642,22 @@ export default function CSVAnalyzer() {
       intermediateRows.push(currentRowIndex)
       endRowIndex = currentRowIndex
 
-      // Si encontramos un destino válido, terminar el trayecto
-      if (currentArrival) {
-        destination = currentArrival
-        break
+      // Lógica especial para trayectos hacia Annex
+      if (isAnnexOrigin(origin)) {
+        if (isAnnexIntermediateStop(currentArrival)) {
+          // Ignorar como destino final, continuar buscando
+          continue
+        }
+        if (isAnnexFinalDest(currentArrival)) {
+          destination = currentArrival
+          break
+        }
+      } else {
+        // Lógica normal: si encontramos un destino válido, terminar el trayecto
+        if (currentArrival) {
+          destination = currentArrival
+          break
+        }
       }
     }
 
@@ -624,7 +677,7 @@ export default function CSVAnalyzer() {
       }
     } else {
       console.log(`Trayecto fragmentado rechazado para ${asset}: ${validation.reason}`)
-    return null
+      return null
     }
   }
 
@@ -661,10 +714,22 @@ export default function CSVAnalyzer() {
       intermediateRows.unshift(currentRowIndex) // Agregar al inicio para mantener orden
       startRowIndex = currentRowIndex
 
-      // Si encontramos un origen válido, terminar el trayecto
-      if (currentDeparture) {
-        origin = currentDeparture
-        break
+      // Lógica especial para trayectos de vuelta desde Annex
+      if (isAnnexFinalDest(destination)) {
+        if (isAnnexIntermediateStop(currentDeparture)) {
+          // Ignorar como origen final, continuar buscando
+          continue
+        }
+        if (isAnnexReturnDest(currentDeparture)) {
+          origin = currentDeparture
+          break
+        }
+      } else {
+        // Lógica normal: si encontramos un origen válido, terminar el trayecto
+        if (currentDeparture) {
+          origin = currentDeparture
+          break
+        }
       }
     }
 
@@ -718,14 +783,44 @@ export default function CSVAnalyzer() {
 
         // Caso 1: Trayecto completo en una sola fila
         if (departure && arrival && departure !== arrival) {
-          const validation = isValidParqueaderoCambiaderoStrict(departure, arrival)
-          const route = `${departure} → ${arrival}`
+          let realArrival = arrival
+          // Lógica especial para trayectos directos a Annex
+          if (isAnnexOrigin(departure) && isAnnexIntermediateStop(arrival)) {
+            for (let j = i + 1; j < rowIndexes.length; j++) {
+              const nextRow = data[rowIndexes[j]]
+              const nextArrival = normalizeLocation(nextRow[columnMappings.arriveat])
+              if (isAnnexFinalDest(nextArrival)) {
+                realArrival = nextArrival
+                break
+              }
+              if (!isAnnexIntermediateStop(nextArrival)) {
+                break
+              }
+            }
+          }
+          // Lógica especial para trayectos de vuelta desde Annex
+          if (isAnnexFinalDest(departure) && isAnnexIntermediateStop(arrival)) {
+            for (let j = i + 1; j < rowIndexes.length; j++) {
+              const nextRow = data[rowIndexes[j]]
+              const nextArrival = normalizeLocation(nextRow[columnMappings.arriveat])
+              if (isAnnexReturnDest(nextArrival)) {
+                realArrival = nextArrival
+                break
+              }
+              if (!isAnnexIntermediateStop(nextArrival)) {
+                break
+              }
+            }
+          }
+          // Solo una declaración de validation y route
+          const validation = isValidParqueaderoCambiaderoStrict(departure, realArrival)
+          const route = `${departure} → ${realArrival}`
 
           if (validation.isValid) {
             trips.push({
               asset,
               origin: departure,
-              destination: arrival,
+              destination: realArrival,
               totalDistance: distance,
               startRowIndex: currentRowIndex,
               endRowIndex: currentRowIndex,
@@ -741,15 +836,15 @@ export default function CSVAnalyzer() {
               type: "Completo"
             })
             
-            console.log(`✅ Trayecto completo aceptado para ${asset}: ${departure} → ${arrival} (${validation.direction})`)
+            console.log(`✅ Trayecto completo aceptado para ${asset}: ${departure} → ${realArrival} (${validation.direction})`)
           } else {
             rejectedTrips.push({
               asset,
               reason: validation.reason || "Trayecto no válido",
               origin: departure,
-              destination: arrival
+              destination: realArrival
             })
-            console.log(`❌ Trayecto completo rechazado para ${asset}: ${departure} → ${arrival} - ${validation.reason}`)
+            console.log(`❌ Trayecto completo rechazado para ${asset}: ${departure} → ${realArrival} - ${validation.reason}`)
           }
           i++
         }
