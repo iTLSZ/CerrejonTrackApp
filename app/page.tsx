@@ -42,135 +42,7 @@ import LocationFilter from "../components/location-filter"
 import RouteSummary from "../components/route-summary"
 import StatsCard from "../components/stats-card"
 
-// Datos de ejemplo para el preview
-const SAMPLE_HEADERS = ["AssetExtra", "Deparfrom", "Arriveat", "Distance", "Date", "Driver", "DepartureTime"]
-const SAMPLE_DATA = [
-  // === CASOS PARA DEMOSTRAR SEPARACIÓN AUTOMÁTICA ===
-  // Los datos llegan con destinos genéricos y el sistema debe clasificarlos por horario
-  
-  // Casos de ida que deberían clasificarse como Change House por horario
-  // Urumita: Change House (4:10 AM) vs 5x2 (5:05 AM)
-  [
-    "CAM001",
-    "Parqueadero Urumita",
-    "Cambiadero Change House", // Genérico - sistema debe clasificar
-    "621.5",
-    "2023-05-10",
-    "Juan Pérez",
-    "04:06:23", // Cerca de 04:10 → Change House
-  ],
-  
-  // Villanueva: Change House (4:15 AM) vs 5x2 (5:10 AM)  
-  [
-    "CAM002",
-    "Parqueadero Villanueva", 
-    "Cambiadero Change House", // Genérico - sistema debe clasificar
-    "534.6",
-    "2023-05-11",
-    "Ana García",
-    "04:12:15", // Cerca de 04:15 → Change House
-  ],
-  
-  // Valledupar: Change House (3:45 AM) vs 5x2 (4:45 AM)
-  [
-    "CAM003",
-    "Parqueadero Valledupar",
-    "Cambiadero Change House", // Genérico - sistema debe clasificar
-    "378.9",
-    "2023-05-12",
-    "Sofia Herrera",
-    "03:48:00", // Cerca de 03:45 → Change House
-  ],
-  
-  // Casos de ida que deberían clasificarse como 5x2 por horario
-  [
-    "CAM004",
-    "Parqueadero Urumita",
-    "Cambiadero Change House", // Genérico - sistema debe clasificar
-    "662.8",
-    "2023-05-10",
-    "Ana García",
-    "05:07:02", // Cerca de 05:05 → 5x2
-  ],
-  [
-    "CAM005",
-    "Parqueadero Villanueva",
-    "Cambiadero Change House", // Genérico - sistema debe clasificar
-    "620.3",
-    "2023-05-13",
-    "Carlos López",
-    "05:08:45", // Cerca de 05:10 → 5x2
-  ],
-  [
-    "CAM006",
-    "Parqueadero Valledupar", 
-    "Cambiadero Change House", // Genérico - sistema debe clasificar
-    "378.9",
-    "2023-05-14",
-    "Sofia Herrera", 
-    "04:42:00", // Cerca de 04:45 → 5x2
-  ],
 
-  // Casos de vuelta que deberían clasificarse como Change House por horario (7:00 PM)
-  [
-    "CAM007",
-    "Cambiadero Change House", // Genérico - sistema debe clasificar
-    "Parqueadero Urumita",
-    "351.2",
-    "2023-05-11",
-    "Juan Pérez",
-    "19:05:00", // Cerca de 19:00 → Change House
-  ],
-  [
-    "CAM008",
-    "Cambiadero Change House", // Genérico - sistema debe clasificar
-    "Parqueadero Villanueva",
-    "357.9",
-    "2023-05-12",
-    "Juan Pérez",
-    "18:58:30", // Cerca de 19:00 → Change House
-  ],
-
-  // Casos de vuelta que deberían clasificarse como 5x2 por horario (5:00 PM)
-  [
-    "CAM009",
-    "Cambiadero Change House", // Genérico - sistema debe clasificar
-    "Parqueadero Urumita",
-    "401.7",
-    "2023-05-12",
-    "Carlos López",
-    "17:05:00", // Cerca de 17:00 → 5x2
-  ],
-  [
-    "CAM010",
-    "Cambiadero Change House", // Genérico - sistema debe clasificar
-    "Parqueadero Villanueva",
-    "998.2",
-    "2023-05-14",
-    "María Rodríguez",
-    "16:58:20", // Cerca de 17:00 → 5x2
-  ],
-
-  // Casos fuera de rango que deberían quedar sin asignar
-  [
-    "CAM011",
-    "Parqueadero Urumita",
-    "Cambiadero Change House", // Genérico - sistema debe clasificar
-    "445.3",
-    "2023-05-15",
-    "Luis Gómez",
-    "03:30:00", // Fuera de rango → sin asignar
-  ],
-  [
-    "CAM012",
-    "Cambiadero Change House", // Genérico - sistema debe clasificar
-    "Parqueadero Urumita",
-    "445.3",
-    "2023-05-15",
-    "Luis Gómez",
-    "20:30:00", // Fuera de rango → sin asignar
-  ],
-]
 
 // Lista válida de ubicaciones permitidas (actualizada con los nuevos cambiaderos)
 const ALLOWED_LOCATIONS = [
@@ -195,6 +67,57 @@ const ALLOWED_LOCATIONS = [
   "Cambiadero Change House",
   "Cambiadero 5x2",
 ]
+
+// RESTRICCIONES DE PARQUEADEROS POR CAMBIADERO
+// Parqueaderos que NO pueden usar el cambiadero 5x2 (solo Change House)
+const PARQUEADEROS_SOLO_CHANGE_HOUSE = [
+  "Parqueadero Uribia",
+  "Parqueadero Tomarrazon", 
+  "Parqueadero Alojamiento"
+]
+
+// Parqueaderos que pueden usar tanto Change House como 5x2
+const PARQUEADEROS_AMBOS_CAMBIADEROS = [
+  "Parqueadero Urumita",
+  "Parqueadero Villanueva", 
+  "Parqueadero San Juan",
+  "Parqueadero Valledupar",
+  "Parqueadero Fonseca",
+  "Parqueadero Barrancas",
+  "Parqueadero HatoNuevo",
+  "Parqueadero Albania",
+  "Parqueadero Maicao",
+  "Parqueadero Riohacha"
+]
+
+// Función para obtener parqueaderos permitidos según el cambiadero
+const getParqueaderosForCambiadero = (cambiadero: string): string[] => {
+  if (cambiadero === "Cambiadero 5x2") {
+    // 5x2 SOLO puede ser usado por parqueaderos que NO están en la lista de restringidos
+    return PARQUEADEROS_AMBOS_CAMBIADEROS
+  } else if (cambiadero === "Cambiadero Change House") {
+    // Change House puede ser usado por TODOS los parqueaderos
+    return [...PARQUEADEROS_AMBOS_CAMBIADEROS, ...PARQUEADEROS_SOLO_CHANGE_HOUSE]
+  } else {
+    // Para otros cambiaderos, permitir todos los parqueaderos
+    return ALLOWED_LOCATIONS.filter(loc => loc.startsWith("Parqueadero"))
+  }
+}
+
+// Función para verificar si un parqueadero puede usar un cambiadero específico
+const canParqueaderoUseCambiadero = (parqueadero: string, cambiadero: string): boolean => {
+  // Los parqueaderos restringidos SOLO pueden usar Change House
+  if (PARQUEADEROS_SOLO_CHANGE_HOUSE.includes(parqueadero)) {
+    return cambiadero === "Cambiadero Change House"
+  }
+  
+  // Para cambiadero 5x2, verificar que no esté en la lista de restringidos
+  if (cambiadero === "Cambiadero 5x2") {
+    return !PARQUEADEROS_SOLO_CHANGE_HOUSE.includes(parqueadero)
+  }
+  
+  return true // Otros cambiaderos permiten todos los parqueaderos
+}
 
 // Diccionario de reemplazos específicos (actualizado)
 const LOCATION_NORMALIZATION: Record<string, string> = {
@@ -332,7 +255,31 @@ function determineCambiadero(
     }
   }
 
-  // PASO 2: Identificar si es un trayecto que involucra Change House (aplicar criterios de aplicación)
+  // PASO 2: Verificar restricciones de parqueaderos para 5x2 ANTES de cualquier análisis
+  const involvedParqueadero = origin.startsWith("Parqueadero") ? origin : destination.startsWith("Parqueadero") ? destination : null
+  
+  if (involvedParqueadero && PARQUEADEROS_SOLO_CHANGE_HOUSE.includes(involvedParqueadero)) {
+    // Estos parqueaderos SOLO pueden usar Change House, nunca 5x2
+    if (destination === "Cambiadero 5x2" || origin === "Cambiadero 5x2") {
+      return {
+        cambiadero: null,
+        reason: `❌ ${involvedParqueadero} no puede usar Cambiadero 5x2 (restringido)`,
+        isValid: false,
+        category: "parqueadero_restringido_5x2"
+      }
+    }
+    // Si es hacia/desde Change House, forzar asignación a Change House
+    if (destination === "Cambiadero Change House" || origin === "Cambiadero Change House") {
+      return {
+        cambiadero: "Cambiadero Change House",
+        reason: `✅ ${involvedParqueadero} asignado a Change House (único cambiadero permitido)`,
+        isValid: true,
+        category: "parqueadero_forzado_change_house"
+      }
+    }
+  }
+
+  // PASO 3: Identificar si es un trayecto que involucra Change House (aplicar criterios de aplicación)
   const isOutboundToChangeHouse = origin.startsWith("Parqueadero") && 
     (destination === "Cambiadero Change House" || destination === "Cambiadero 5x2")
   const isReturnFromChangeHouse = 
@@ -350,7 +297,7 @@ function determineCambiadero(
     }
   }
 
-  // PASO 3: Aplicar algoritmo de clasificación según especificaciones
+  // PASO 4: Aplicar algoritmo de clasificación según especificaciones
   if (isOutboundToChangeHouse) {
     // VIAJES DE IDA: Población → Cambiadero
     // Fuente: Horario de salida desde la POBLACIÓN (origen)
@@ -382,8 +329,8 @@ function determineCambiadero(
       }
     }
 
-    // Verificar 5x2 (solo si está definido para esa población)
-    if (populationSchedules["5x2"]) {
+    // Verificar 5x2 (solo si está definido para esa población Y no está restringido)
+    if (populationSchedules["5x2"] && !PARQUEADEROS_SOLO_CHANGE_HOUSE.includes(origin)) {
       const refTime = parseExcelTime(populationSchedules["5x2"])
       if (refTime !== null) {
         const diff = Math.abs(parsedTime - refTime)
@@ -399,6 +346,16 @@ function determineCambiadero(
     const inRange = matches.filter((m) => m.diff <= tolerance)
     
     if (inRange.length === 1) {
+      // Verificación final: asegurar que parqueaderos restringidos no sean asignados a 5x2
+      if (inRange[0].cambiadero === "Cambiadero 5x2" && PARQUEADEROS_SOLO_CHANGE_HOUSE.includes(origin)) {
+        return {
+          cambiadero: "Cambiadero Change House",
+          reason: `❌ ${origin} no puede usar 5x2 - forzado a Change House`,
+          isValid: true,
+          category: "ida_forzado_change_house"
+        }
+      }
+      
       return {
         cambiadero: inRange[0].cambiadero,
         reason: `Clasificado como ${inRange[0].cambiadero} por horario ${departureTime} desde ${origin} (±${tolerance} min de ${inRange[0].refHour})`,
@@ -406,8 +363,23 @@ function determineCambiadero(
         category: "ida_asignado"
       }
     } else if (inRange.length > 1) {
-      // Resolución de conflictos: asignar al más cercano
-      const best = inRange.reduce((a, b) => (a.diff < b.diff ? a : b))
+      // Resolución de conflictos: asignar al más cercano, pero verificar restricciones
+      let best = inRange.reduce((a, b) => (a.diff < b.diff ? a : b))
+      
+      // Si el mejor candidato es 5x2 pero el parqueadero está restringido, usar Change House
+      if (best.cambiadero === "Cambiadero 5x2" && PARQUEADEROS_SOLO_CHANGE_HOUSE.includes(origin)) {
+        const changeHouseOption = inRange.find(option => option.cambiadero === "Cambiadero Change House")
+        if (changeHouseOption) {
+          best = changeHouseOption
+          return {
+            cambiadero: best.cambiadero,
+            reason: `❌ ${origin} no puede usar 5x2 - asignado a Change House por restricción`,
+            isValid: true,
+            category: "ida_forzado_por_restriccion"
+          }
+        }
+      }
+      
       return {
         cambiadero: best.cambiadero,
         reason: `Clasificado como ${best.cambiadero} por proximidad temporal desde ${origin} (diferencia: ${best.diff.toFixed(1)} min)`,
@@ -442,20 +414,32 @@ function determineCambiadero(
       })
     }
 
-    // Verificar 5x2 (5:00 PM)
-    const ref5x2 = parseExcelTime(RETURN_SCHEDULES["5x2"])
-    if (ref5x2 !== null) {
-      const diff = Math.abs(parsedTime - ref5x2)
-      matches.push({ 
-        cambiadero: "Cambiadero 5x2", 
-        diff, 
-        refHour: RETURN_SCHEDULES["5x2"] 
-      })
+    // Verificar 5x2 (5:00 PM) - Solo si el destino no está restringido
+    if (!PARQUEADEROS_SOLO_CHANGE_HOUSE.includes(destination)) {
+      const ref5x2 = parseExcelTime(RETURN_SCHEDULES["5x2"])
+      if (ref5x2 !== null) {
+        const diff = Math.abs(parsedTime - ref5x2)
+        matches.push({ 
+          cambiadero: "Cambiadero 5x2", 
+          diff, 
+          refHour: RETURN_SCHEDULES["5x2"] 
+        })
+      }
     }
 
     const inRange = matches.filter((m) => m.diff <= tolerance)
     
     if (inRange.length === 1) {
+      // Verificación final: asegurar que parqueaderos restringidos no sean asignados a 5x2
+      if (inRange[0].cambiadero === "Cambiadero 5x2" && PARQUEADEROS_SOLO_CHANGE_HOUSE.includes(destination)) {
+        return {
+          cambiadero: "Cambiadero Change House",
+          reason: `❌ ${destination} no puede usar 5x2 - forzado a Change House`,
+          isValid: true,
+          category: "vuelta_forzado_change_house"
+        }
+      }
+      
       return {
         cambiadero: inRange[0].cambiadero,
         reason: `Clasificado como ${inRange[0].cambiadero} por horario de salida ${departureTime} (±${tolerance} min de ${inRange[0].refHour})`,
@@ -463,8 +447,23 @@ function determineCambiadero(
         category: "vuelta_asignado"
       }
     } else if (inRange.length > 1) {
-      // Resolución de conflictos: asignar al más cercano
-      const best = inRange.reduce((a, b) => (a.diff < b.diff ? a : b))
+      // Resolución de conflictos: asignar al más cercano, pero verificar restricciones
+      let best = inRange.reduce((a, b) => (a.diff < b.diff ? a : b))
+      
+      // Si el mejor candidato es 5x2 pero el destino está restringido, usar Change House
+      if (best.cambiadero === "Cambiadero 5x2" && PARQUEADEROS_SOLO_CHANGE_HOUSE.includes(destination)) {
+        const changeHouseOption = inRange.find(option => option.cambiadero === "Cambiadero Change House")
+        if (changeHouseOption) {
+          best = changeHouseOption
+          return {
+            cambiadero: best.cambiadero,
+            reason: `❌ ${destination} no puede usar 5x2 - asignado a Change House por restricción`,
+            isValid: true,
+            category: "vuelta_forzado_por_restriccion"
+          }
+        }
+      }
+      
       return {
         cambiadero: best.cambiadero,
         reason: `Clasificado como ${best.cambiadero} por proximidad temporal (diferencia: ${best.diff.toFixed(1)} min)`,
@@ -568,6 +567,7 @@ const ROUTE_RESTRICTIONS = [
     destination: "Parqueadero Fonseca",
     reason: "❌ Ruta no permitida: Cambiadero Annex no debe conectar con Parqueadero Fonseca",
   },
+  
   {
     origin: "Parqueadero Fonseca",
     destination: "Cambiadero Annex",
@@ -593,6 +593,39 @@ const ROUTE_RESTRICTIONS = [
     destination: "Parqueadero San Juan",
     reason: "❌ Ruta no permitida: Cambiadero Annex no debe conectar con Parqueadero San Juan",
   },
+  {
+    origin: "Parqueadero Uribia",
+    destination: "Cambiadero 5x2",
+    reason: "❌ Ruta no permitida: Parqueadero Uribia no debe conectar con Cambiadero 5x2",
+  },
+  {
+    origin: "Cambiadero 5x2",
+    destination: "Parqueadero Uribia",
+    reason: "❌ Ruta no permitida: Cambiadero 5x2 no debe conectar con Parqueadero Uribia",
+  },
+  {
+    origin: "Parqueadero Tomarrazon",
+    destination: "Cambiadero 5x2",
+    reason: "❌ Ruta no permitida: Parqueadero Tomarrazon no debe conectar con Cambiadero 5x2",
+  },
+  {
+    origin: "Cambiadero 5x2",
+    destination: "Parqueadero Tomarrazon",
+    reason: "❌ Ruta no permitida: Cambiadero 5x2 no debe conectar con Parqueadero Tomarrazon",
+  },
+  {
+    origin: "Parqueadero Alojamiento",
+    destination: "Cambiadero 5x2",
+    reason: "❌ Ruta no permitida: Parqueadero Alojamiento no debe conectar con Cambiadero 5x2",
+  },
+  {
+    origin: "Cambiadero 5x2",
+    destination: "Parqueadero Alojamiento",
+    reason: "❌ Ruta no permitida: Cambiadero 5x2 no debe conectar con Parqueadero Alojamiento",
+  },
+  
+  
+  
 ]
 
 // Función para verificar restricciones específicas de rutas
@@ -875,8 +908,8 @@ export default function CSVAnalyzer() {
   // Cargar datos de ejemplo para el preview (deshabilitado por defecto)
   useEffect(() => {
     if (isPreview) {
-      setHeaders(SAMPLE_HEADERS)
-      setCsvData(SAMPLE_DATA)
+      // Preview deshabilitado - las constantes SAMPLE_HEADERS y SAMPLE_DATA fueron removidas
+      console.log("Preview mode disabled - no sample data available")
       setTransformationComplete(false)
     }
   }, [isPreview])
@@ -2869,6 +2902,7 @@ export default function CSVAnalyzer() {
                     <AlertDescription>
                       <div className="space-y-2">
                         <p className="font-medium text-sm">🎯 Aplica únicamente cuando el destino es "Cambiadero Change House"</p>
+                        <p className="font-medium text-sm text-red-600">🚫 RESTRICCIÓN: Tomarrazon, Uribia y Alojamiento NO pueden usar 5x2</p>
                         <ul className="list-disc list-inside mt-2 space-y-1">
                           <li>
                             <strong>Trayectos Completos:</strong> Procesa viajes definidos en una sola fila
@@ -3040,9 +3074,9 @@ export default function CSVAnalyzer() {
                             <li>• Riohacha: Change House (04:30) vs 5x2 (05:20)</li>
                             <li>• Maicao: Change House (05:00) vs 5x2 (05:50)</li>
                             <li>• Albania: Change House (05:30) vs 5x2 (06:40)</li>
-                            <li>• Uribia: Change House (04:20) - solo esta opción</li>
-                            <li>• Tomarrazon: Change House (04:40) - solo esta opción</li>
-                            <li>• Alojamiento: Change House (05:40) - solo esta opción</li>
+                            <li>• Uribia: Change House (04:20) - <strong>🚫 RESTRINGIDO para 5x2</strong></li>
+                            <li>• Tomarrazon: Change House (04:40) - <strong>🚫 RESTRINGIDO para 5x2</strong></li>
+                            <li>• Alojamiento: Change House (05:40) - <strong>🚫 RESTRINGIDO para 5x2</strong></li>
                           </ul>
                         </div>
                         <div>
@@ -4010,40 +4044,59 @@ export default function CSVAnalyzer() {
               </Card>
 
               {/* Información del algoritmo */}
-                              <Alert>
-                  <Clock className="h-4 w-4" />
-                  <AlertTitle>Algoritmo de Procesamiento Avanzado con Separación por Horarios</AlertTitle>
-                  <AlertDescription>
-                    <div className="mt-2 space-y-3 text-sm">
+                                            <Alert variant="destructive" className="mb-4">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>🚫 RESTRICCIONES ACTIVAS para Cambiadero 5x2</AlertTitle>
+                <AlertDescription>
+                  <div className="mt-2 space-y-2 text-sm">
+                    <p><strong>Los siguientes parqueaderos están RESTRINGIDOS y NO pueden usar el cambiadero 5x2:</strong></p>
+                    <ul className="list-disc list-inside space-y-1 ml-4">
+                      <li><strong>Parqueadero Tomarrazon</strong> - Solo Change House</li>
+                      <li><strong>Parqueadero Uribia</strong> - Solo Change House</li>
+                      <li><strong>Parqueadero Alojamiento</strong> - Solo Change House</li>
+                    </ul>
+                    <p className="font-medium text-red-700">Estos parqueaderos serán automáticamente asignados a "Change House" sin importar el horario.</p>
+                  </div>
+                </AlertDescription>
+              </Alert>
+
+              <Alert>
+                <Clock className="h-4 w-4" />
+                <AlertTitle>Algoritmo de Procesamiento Avanzado con Separación por Horarios</AlertTitle>
+                <AlertDescription>
+                  <div className="mt-2 space-y-3 text-sm">
+                    <div>
+                      <p className="font-medium">📋 Procesamiento General:</p>
+                      <p><strong>PASO 1:</strong> Validación de lógica general (Parqueadero ↔ Cambiadero válidos)</p>
+                      <p><strong>PASO 2:</strong> Verificación de restricciones de parqueaderos para 5x2</p>
+                      <p><strong>PASO 3:</strong> Procesamiento de trayectos completos y fragmentados</p>
+                      <p><strong>PASO 4:</strong> Preservación del orden original de registros</p>
+                      <p><strong>PASO 5:</strong> Filtrado inteligente de trayectos válidos</p>
+                    </div>
+                    <div>
+                      <p className="font-medium">⏰ Separación por Horarios (Solo Change House):</p>
+                      <p><strong>PASO 6:</strong> Si involucra "Cambiadero Change House" → aplicar clasificación por horario</p>
+                      <p><strong>PASO 7:</strong> Asignar al cambiadero virtual correspondiente (Change House vs 5x2)</p>
+                      <p><strong>PASO 8:</strong> Verificación final de restricciones antes de asignar</p>
+                    </div>
+                    <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                       <div>
-                        <p className="font-medium">📋 Procesamiento General:</p>
-                        <p><strong>PASO 1:</strong> Validación de lógica general (Parqueadero ↔ Cambiadero válidos)</p>
-                        <p><strong>PASO 2:</strong> Procesamiento de trayectos completos y fragmentados</p>
-                        <p><strong>PASO 3:</strong> Preservación del orden original de registros</p>
-                        <p><strong>PASO 4:</strong> Filtrado inteligente de trayectos válidos</p>
+                        <p className="font-medium">Viajes de Ida (Población → Change House):</p>
+                        <p>• Fuente: Horario desde población</p>
+                        <p>• Tolerancia: ±10 minutos</p>
+                        <p>• 10 poblaciones permitidas para 5x2</p>
+                        <p>• 3 poblaciones restringidas (solo Change House)</p>
                       </div>
                       <div>
-                        <p className="font-medium">⏰ Separación por Horarios (Solo Change House):</p>
-                        <p><strong>PASO 5:</strong> Si involucra "Cambiadero Change House" → aplicar clasificación por horario</p>
-                        <p><strong>PASO 6:</strong> Asignar al cambiadero virtual correspondiente (Change House vs 5x2)</p>
-                      </div>
-                      <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <p className="font-medium">Viajes de Ida (Población → Change House):</p>
-                          <p>• Fuente: Horario desde población</p>
-                          <p>• Tolerancia: ±10 minutos</p>
-                          <p>• 13 poblaciones con horarios específicos</p>
-                        </div>
-                        <div>
-                          <p className="font-medium">Viajes de Vuelta (Change House → Población):</p>
-                          <p>• Fuente: Horario desde cambiadero</p>
-                          <p>• Change House: 19:00 (±15 min)</p>
-                          <p>• 5x2: 17:00 (±15 min)</p>
-                        </div>
+                        <p className="font-medium">Viajes de Vuelta (Change House → Población):</p>
+                        <p>• Fuente: Horario desde cambiadero</p>
+                        <p>• Change House: 19:00 (±15 min)</p>
+                        <p>• 5x2: 17:00 (±15 min) - verificando restricciones</p>
                       </div>
                     </div>
-                  </AlertDescription>
-                </Alert>
+                  </div>
+                </AlertDescription>
+              </Alert>
             </div>
           </motion.div>
         </TabsContent>

@@ -1,19 +1,21 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Filter, MapPin, Truck, Search, FilterX, Check, ChevronsUpDown } from "lucide-react"
+import { Filter, MapPin, Truck, Search, FilterX, Check, ChevronsUpDown, AlertTriangle } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { motion, AnimatePresence } from "framer-motion"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 interface LocationFilterProps {
   onFilterChange: (locations: string[]) => void
+  selectedCambiadero?: string // Nuevo prop para restricciones
 }
 
 // Lista de ubicaciones permitidas actualizada con los nuevos cambiaderos
@@ -43,16 +45,75 @@ const CAMBIADEROS = [
   "Cambiadero 5x2",
 ]
 
-export default function LocationFilter({ onFilterChange }: LocationFilterProps) {
+// RESTRICCIONES DE PARQUEADEROS POR CAMBIADERO
+const PARQUEADEROS_SOLO_CHANGE_HOUSE = [
+  "Parqueadero Uribia",
+  "Parqueadero Tomarrazon", 
+  "Parqueadero Alojamiento"
+]
+
+const PARQUEADEROS_AMBOS_CAMBIADEROS = [
+  "Parqueadero Urumita",
+  "Parqueadero Villanueva", 
+  "Parqueadero San Juan",
+  "Parqueadero Valledupar",
+  "Parqueadero Fonseca",
+  "Parqueadero Barrancas",
+  "Parqueadero HatoNuevo",
+  "Parqueadero Albania",
+  "Parqueadero Maicao",
+  "Parqueadero Riohacha"
+]
+
+// Función para obtener parqueaderos permitidos según el cambiadero
+const getParqueaderosForCambiadero = (cambiadero?: string): string[] => {
+  if (cambiadero === "Cambiadero 5x2") {
+    return PARQUEADEROS_AMBOS_CAMBIADEROS
+  } else if (cambiadero === "Cambiadero Change House") {
+    return [...PARQUEADEROS_AMBOS_CAMBIADEROS, ...PARQUEADEROS_SOLO_CHANGE_HOUSE]
+  } else {
+    // Para otros cambiaderos o sin selección, permitir todos los parqueaderos
+    return PARQUEADEROS
+  }
+}
+
+// Función para verificar si un parqueadero puede usar un cambiadero específico
+const canParqueaderoUseCambiadero = (parqueadero: string, cambiadero?: string): boolean => {
+  if (cambiadero === "Cambiadero 5x2") {
+    return !PARQUEADEROS_SOLO_CHANGE_HOUSE.includes(parqueadero)
+  }
+  return true // Otros cambiaderos permiten todos los parqueaderos
+}
+
+export default function LocationFilter({ onFilterChange, selectedCambiadero }: LocationFilterProps) {
+  // Obtener parqueaderos permitidos basado en el cambiadero seleccionado
+  const allowedParqueaderos = getParqueaderosForCambiadero(selectedCambiadero)
+  
   // Estado para los filtros
-  const [selectedLocations, setSelectedLocations] = useState<string[]>([...PARQUEADEROS, ...CAMBIADEROS])
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([...allowedParqueaderos, ...CAMBIADEROS])
   const [filterType, setFilterType] = useState<"all" | "parqueaderos" | "cambiaderos" | "custom">("all")
   const [searchTerm, setSearchTerm] = useState("")
   const [isCollapsed, setIsCollapsed] = useState(true)
 
-  // Filtrar ubicaciones basado en el término de búsqueda
-  const filteredParqueaderos = PARQUEADEROS.filter((location) =>
-    location.toLowerCase().includes(searchTerm.toLowerCase()),
+  // Efecto para actualizar ubicaciones seleccionadas cuando cambia el cambiadero
+  useEffect(() => {
+    const newAllowedParqueaderos = getParqueaderosForCambiadero(selectedCambiadero)
+    
+    // Filtrar ubicaciones seleccionadas para mantener solo las permitidas
+    const filteredSelectedLocations = selectedLocations.filter(location => 
+      newAllowedParqueaderos.includes(location) || CAMBIADEROS.includes(location)
+    )
+    
+    // Si hay ubicaciones que fueron filtradas, actualizar el estado
+    if (filteredSelectedLocations.length !== selectedLocations.length) {
+      setSelectedLocations(filteredSelectedLocations)
+      onFilterChange(filteredSelectedLocations)
+    }
+  }, [selectedCambiadero])
+
+  // Filtrar ubicaciones basado en el término de búsqueda y restricciones
+  const filteredParqueaderos = allowedParqueaderos.filter((location) =>
+    location.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   const filteredCambiaderos = CAMBIADEROS.filter((location) =>
@@ -65,10 +126,10 @@ export default function LocationFilter({ onFilterChange }: LocationFilterProps) 
 
     switch (type) {
       case "all":
-        newLocations = [...PARQUEADEROS, ...CAMBIADEROS]
+        newLocations = [...allowedParqueaderos, ...CAMBIADEROS]
         break
       case "parqueaderos":
-        newLocations = [...PARQUEADEROS]
+        newLocations = [...allowedParqueaderos]
         break
       case "cambiaderos":
         newLocations = [...CAMBIADEROS]
@@ -98,6 +159,9 @@ export default function LocationFilter({ onFilterChange }: LocationFilterProps) 
     onFilterChange(newLocations)
   }
 
+  // Obtener parqueaderos restringidos para mostrar información
+  const restrictedParqueaderos = selectedCambiadero === "Cambiadero 5x2" ? PARQUEADEROS_SOLO_CHANGE_HOUSE : []
+
   return (
     <Collapsible open={!isCollapsed} onOpenChange={setIsCollapsed}>
       <Card className="border-2 hover:border-primary/50 transition-colors">
@@ -108,6 +172,11 @@ export default function LocationFilter({ onFilterChange }: LocationFilterProps) 
                 <Filter className="h-5 w-5 text-primary" />
                 Filtro de Ubicaciones (Incluye Change House y 5x2)
                 <Badge className="ml-2">{selectedLocations.length}</Badge>
+                {restrictedParqueaderos.length > 0 && (
+                  <Badge variant="secondary" className="ml-1">
+                    {restrictedParqueaderos.length} restringidos
+                  </Badge>
+                )}
               </CardTitle>
               <ChevronsUpDown
                 className="h-4 w-4 text-muted-foreground transition-transform duration-200"
@@ -117,12 +186,25 @@ export default function LocationFilter({ onFilterChange }: LocationFilterProps) 
           </CollapsibleTrigger>
           <CardDescription>
             Selecciona las ubicaciones que deseas incluir en el análisis con separación de cambiaderos
+            {selectedCambiadero && ` - Filtrado para: ${selectedCambiadero}`}
           </CardDescription>
         </CardHeader>
 
         <CollapsibleContent>
           <CardContent>
             <div className="space-y-4">
+              {/* Alerta de restricciones cuando se selecciona 5x2 */}
+              {restrictedParqueaderos.length > 0 && (
+                <Alert className="border-orange-200 bg-orange-50">
+                  <AlertTriangle className="h-4 w-4 text-orange-600" />
+                  <AlertTitle className="text-orange-800">Restricciones Activas para {selectedCambiadero}</AlertTitle>
+                  <AlertDescription className="text-orange-700">
+                    Los siguientes parqueaderos están restringidos y no aparecen en la lista: {restrictedParqueaderos.join(", ")}. 
+                    Estos parqueaderos solo pueden usar "Cambiadero Change House".
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant={filterType === "all" ? "default" : "outline"}
@@ -131,7 +213,7 @@ export default function LocationFilter({ onFilterChange }: LocationFilterProps) 
                   className="transition-all"
                 >
                   <Check className={`mr-2 h-4 w-4 ${filterType === "all" ? "opacity-100" : "opacity-0"}`} />
-                  Todas las ubicaciones
+                  Todas las ubicaciones permitidas
                 </Button>
                 <Button
                   variant={filterType === "parqueaderos" ? "default" : "outline"}
@@ -140,7 +222,7 @@ export default function LocationFilter({ onFilterChange }: LocationFilterProps) 
                   className="flex items-center gap-1 transition-all"
                 >
                   <MapPin className="h-3.5 w-3.5" />
-                  Solo Parqueaderos
+                  Solo Parqueaderos ({allowedParqueaderos.length})
                 </Button>
                 <Button
                   variant={filterType === "cambiaderos" ? "default" : "outline"}
@@ -182,7 +264,7 @@ export default function LocationFilter({ onFilterChange }: LocationFilterProps) 
                   <div className="flex justify-between items-center mb-2">
                     <h4 className="text-sm font-medium flex items-center gap-1">
                       <MapPin className="h-4 w-4 text-primary" />
-                      Parqueaderos
+                      Parqueaderos Permitidos
                     </h4>
                     <div className="flex items-center gap-1">
                       <Badge variant="outline" className="ml-1">
@@ -196,7 +278,7 @@ export default function LocationFilter({ onFilterChange }: LocationFilterProps) 
                           onClick={() => {
                             const allSelected = filteredParqueaderos.every((p) => selectedLocations.includes(p))
                             const newLocations = allSelected
-                              ? selectedLocations.filter((loc) => !PARQUEADEROS.includes(loc))
+                              ? selectedLocations.filter((loc) => !allowedParqueaderos.includes(loc))
                               : [...new Set([...selectedLocations, ...filteredParqueaderos])]
 
                             setSelectedLocations(newLocations)
@@ -211,6 +293,7 @@ export default function LocationFilter({ onFilterChange }: LocationFilterProps) 
                       </div>
                     </div>
                   </div>
+                  
                   <AnimatePresence>
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                       <ScrollArea className="h-[200px] rounded-md border p-2">
@@ -242,6 +325,11 @@ export default function LocationFilter({ onFilterChange }: LocationFilterProps) 
                                   className="text-sm leading-none cursor-pointer w-full truncate"
                                 >
                                   {location}
+                                  {selectedCambiadero === "Cambiadero 5x2" && PARQUEADEROS_AMBOS_CAMBIADEROS.includes(location) && (
+                                    <Badge variant="outline" className="ml-1 text-xs">
+                                      ✓ Permitido
+                                    </Badge>
+                                  )}
                                 </Label>
                               </motion.div>
                             ))}
@@ -285,6 +373,7 @@ export default function LocationFilter({ onFilterChange }: LocationFilterProps) 
                       </div>
                     </div>
                   </div>
+                  
                   <AnimatePresence>
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                       <ScrollArea className="h-[200px] rounded-md border p-2">
@@ -341,21 +430,28 @@ export default function LocationFilter({ onFilterChange }: LocationFilterProps) 
 
           <CardFooter className="flex flex-col space-y-2 pt-0 border-t">
             <div className="flex items-center justify-between w-full pt-4">
-              <div className="text-sm text-muted-foreground">{selectedLocations.length} ubicaciones seleccionadas</div>
+              <div className="text-sm text-muted-foreground">
+                {selectedLocations.length} ubicaciones seleccionadas
+                {restrictedParqueaderos.length > 0 && (
+                  <span className="text-orange-600 ml-2">
+                    ({restrictedParqueaderos.length} restringidos para {selectedCambiadero})
+                  </span>
+                )}
+              </div>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setSelectedLocations([...PARQUEADEROS, ...CAMBIADEROS])
+                  setSelectedLocations([...allowedParqueaderos, ...CAMBIADEROS])
                   setFilterType("all")
-                  onFilterChange([...PARQUEADEROS, ...CAMBIADEROS])
+                  onFilterChange([...allowedParqueaderos, ...CAMBIADEROS])
                 }}
               >
                 Restablecer todo
               </Button>
             </div>
 
-            {selectedLocations.length > 0 && selectedLocations.length < PARQUEADEROS.length + CAMBIADEROS.length && (
+            {selectedLocations.length > 0 && selectedLocations.length < allowedParqueaderos.length + CAMBIADEROS.length && (
               <div className="p-2 bg-muted rounded-md text-sm">
                 <p className="font-medium">Trayectos filtrados con separación de cambiaderos:</p>
                 <p className="text-muted-foreground">
