@@ -2690,10 +2690,18 @@ export default function CSVAnalyzer() {
 
                         <Alert>
                           <Clock className="h-4 w-4" />
-                          <AlertTitle>Separación por Horarios</AlertTitle>
+                          <AlertTitle>Procesamiento Avanzado con Separación por Horarios</AlertTitle>
                           <AlertDescription>
-                            El sistema separa automáticamente los cambiaderos "Change House" y "5x2" basándose en los
-                            horarios de salida con tolerancia de ±15 minutos.
+                            <div className="space-y-2">
+                              <p>El sistema procesa automáticamente:</p>
+                              <ul className="text-xs space-y-1 mt-2">
+                                <li>• <strong>Trayectos Completos:</strong> Viajes definidos en una sola fila</li>
+                                <li>• <strong>Trayectos Fragmentados:</strong> Suma múltiples filas consecutivas hasta completar el viaje</li>
+                                <li>• <strong>Separación por Horarios:</strong> Solo para "Change House" → "Change House" vs "5x2"</li>
+                                <li>• <strong>Filtrado Inteligente:</strong> Solo trayectos válidos Parqueadero ↔ Cambiadero</li>
+                                <li>• <strong>Tolerancia:</strong> ±10 min (ida) / ±15 min (vuelta)</li>
+                              </ul>
+                            </div>
                           </AlertDescription>
                         </Alert>
 
@@ -2850,30 +2858,41 @@ export default function CSVAnalyzer() {
                   Cargar archivo CSV con separación automática de cambiaderos
                 </CardTitle>
                 <CardDescription>
-                  Selecciona un archivo CSV con datos de rutas. El sistema separará automáticamente "Change House" y
-                  "5x2" basándose en horarios de salida.
+                  Selecciona un archivo CSV con datos de rutas. 
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid w-full items-center gap-6">
                   <Alert>
                     <Clock className="h-4 w-4" />
-                    <AlertTitle>Separación Automática por Horarios</AlertTitle>
+                    <AlertTitle>Separación Automática por Horarios (Solo Change House)</AlertTitle>
                     <AlertDescription>
-                      <ul className="list-disc list-inside mt-2 space-y-1">
-                        <li>
-                          <strong>Horarios de Ida:</strong> Compara con horarios de salida desde cada población
-                        </li>
-                        <li>
-                          <strong>Horarios de Vuelta:</strong> Change House (7:00 PM) vs 5x2 (5:00 PM)
-                        </li>
-                        <li>
-                          <strong>Tolerancia:</strong> ±15 minutos para cada horario de referencia
-                        </li>
-                        <li>
-                          <strong>Formato de Hora:</strong> Soporta formato 24h "HH:mm:ss" (ej: 06:08:27, 15:38:30)
-                        </li>
-                      </ul>
+                      <div className="space-y-2">
+                        <p className="font-medium text-sm">🎯 Aplica únicamente cuando el destino es "Cambiadero Change House"</p>
+                        <ul className="list-disc list-inside mt-2 space-y-1">
+                          <li>
+                            <strong>Trayectos Completos:</strong> Procesa viajes definidos en una sola fila
+                          </li>
+                          <li>
+                            <strong>Trayectos Fragmentados:</strong> Suma distancias de múltiples filas consecutivas hasta completar el viaje
+                          </li>
+                          <li>
+                            <strong>Orden Preservado:</strong> Mantiene el orden original de los registros
+                          </li>
+                          <li>
+                            <strong>Filtrado Inteligente:</strong> Solo considera trayectos válidos Parqueadero ↔ Cambiadero
+                          </li>
+                          <li>
+                            <strong>Horarios de Ida:</strong> Compara con horarios de salida desde cada población (±10 min)
+                          </li>
+                          <li>
+                            <strong>Horarios de Vuelta:</strong> Change House (7:00 PM) vs 5x2 (5:00 PM) (±15 min)
+                          </li>
+                          <li>
+                            <strong>Formato de Hora:</strong> Soporta formato 24h "HH:mm:ss" (ej: 06:08:27, 15:38:30)
+                          </li>
+                        </ul>
+                      </div>
                     </AlertDescription>
                   </Alert>
 
@@ -2977,40 +2996,62 @@ export default function CSVAnalyzer() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  <Alert>
-                    <Clock className="h-4 w-4" />
-                    <AlertTitle>Lógica de Separación por Horarios</AlertTitle>
-                    <AlertDescription>
-                      El sistema utilizará la columna DepartureTime para:
-                      <ul className="list-disc list-inside mt-2 space-y-1">
-                        <li>Comparar con horarios de referencia específicos por población (ida)</li>
-                        <li>Comparar con horarios de vuelta: Change House (7:00 PM) vs 5x2 (5:00 PM)</li>
-                        <li>Aplicar tolerancia de ±15 minutos para cada horario</li>
-                        <li>Asignar automáticamente al cambiadero correspondiente</li>
-                      </ul>
-                    </AlertDescription>
-                  </Alert>
+                                      <Alert>
+                      <Clock className="h-4 w-4" />
+                      <AlertTitle>Lógica de Separación por Horarios (Solo Change House)</AlertTitle>
+                      <AlertDescription>
+                        <div className="space-y-2">
+                          <p className="font-medium text-sm">🎯 La separación por horarios se aplica únicamente cuando el trayecto involucra "Cambiadero Change House"</p>
+                          <p>El sistema utilizará la columna DepartureTime para:</p>
+                          <ul className="list-disc list-inside mt-2 space-y-1">
+                            <li>Validar que el trayecto sea Parqueadero ↔ Cambiadero</li>
+                            <li>Si es Change House → comparar con horarios específicos por población (ida: ±10 min)</li>
+                            <li>Si es Change House → comparar con horarios de vuelta: CH (19:00) vs 5x2 (17:00) (±15 min)</li>
+                            <li>Procesar trayectos completos y fragmentados preservando el orden</li>
+                            <li>Asignar automáticamente al cambiadero virtual correspondiente</li>
+                          </ul>
+                        </div>
+                      </AlertDescription>
+                    </Alert>
 
                   <Alert className="mt-4">
                     <Info className="h-4 w-4" />
-                    <AlertTitle>Horarios de Referencia</AlertTitle>
+                    <AlertTitle>Procesamiento Avanzado</AlertTitle>
                     <AlertDescription>
-                      <div className="mt-2 space-y-2">
-                        <p>
-                          <strong>Ejemplos de horarios de ida por población:</strong>
-                        </p>
-                        <ul className="text-xs space-y-1">
-                          <li>• Urumita: Change House (4:10 AM) vs 5x2 (5:05 AM)</li>
-                          <li>• Villanueva: Change House (4:15 AM) vs 5x2 (5:10 AM)</li>
-                          <li>• Valledupar: Change House (3:45 AM) vs 5x2 (4:45 AM)</li>
-                        </ul>
-                        <p>
-                          <strong>Horarios de vuelta:</strong>
-                        </p>
-                        <ul className="text-xs space-y-1">
-                          <li>• Change House: 7:00 PM (±15 min)</li>
-                          <li>• 5x2: 5:00 PM (±15 min)</li>
-                        </ul>
+                      <div className="mt-2 space-y-3">
+                        <div>
+                          <p className="font-medium text-sm">📋 Procesamiento:</p>
+                          <ul className="text-xs space-y-1 mt-1">
+                            <li>• <strong>Trayectos Completos:</strong> Procesa viajes definidos en una sola fila</li>
+                            <li>• <strong>Trayectos Fragmentados:</strong> Suma distancias de múltiples filas consecutivas hasta completar el viaje</li>
+                            <li>• <strong>Orden Preservado:</strong> Mantiene el orden original de los registros</li>
+                            <li>• <strong>Filtrado Inteligente:</strong> Solo considera trayectos válidos Parqueadero ↔ Cambiadero</li>
+                          </ul>
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">⏰ Horarios de Ida (solo Change House):</p>
+                          <ul className="text-xs space-y-1 mt-1">
+                            <li>• Urumita: Change House (04:10) vs 5x2 (05:05)</li>
+                            <li>• Villanueva: Change House (04:15) vs 5x2 (05:10)</li>
+                            <li>• Valledupar: Change House (03:45) vs 5x2 (04:45)</li>
+                            <li>• Fonseca: Change House (05:00) vs 5x2 (06:00)</li>
+                            <li>• Barrancas: Change House (05:10) vs 5x2 (06:10)</li>
+                            <li>• HatoNuevo: Change House (05:20) vs 5x2 (06:20)</li>
+                            <li>• Riohacha: Change House (04:30) vs 5x2 (05:20)</li>
+                            <li>• Maicao: Change House (05:00) vs 5x2 (05:50)</li>
+                            <li>• Albania: Change House (05:30) vs 5x2 (06:40)</li>
+                            <li>• Uribia: Change House (04:20) - solo esta opción</li>
+                            <li>• Tomarrazon: Change House (04:40) - solo esta opción</li>
+                            <li>• Alojamiento: Change House (05:40) - solo esta opción</li>
+                          </ul>
+                        </div>
+                        <div>
+                          <p className="font-medium text-sm">🔄 Horarios de Vuelta (solo Change House):</p>
+                          <ul className="text-xs space-y-1 mt-1">
+                            <li>• Change House: 19:00 (7:00 PM) ±15 min</li>
+                            <li>• 5x2: 17:00 (5:00 PM) ±15 min</li>
+                          </ul>
+                        </div>
                       </div>
                     </AlertDescription>
                   </Alert>
@@ -3701,12 +3742,29 @@ export default function CSVAnalyzer() {
 
                       <Alert>
                         <Clock className="h-4 w-4" />
-                        <AlertTitle>Separación Automática por Horarios</AlertTitle>
+                        <AlertTitle>Procesamiento Avanzado con Separación por Horarios (Solo Change House)</AlertTitle>
                         <AlertDescription>
-                          El sistema compara los horarios de salida (DepartureTime) con:
-                          <br />• <strong>Horarios de ida:</strong> Específicos por población con tolerancia ±15 min
-                          <br />• <strong>Horarios de vuelta:</strong> Change House (7:00 PM) vs 5x2 (5:00 PM) ±15 min
-                          <br />• <strong>Formato soportado:</strong> "HH:mm:ss" en formato 24 horas
+                          <div className="space-y-2">
+                            <p className="font-medium">🎯 Aplicación: Solo cuando el trayecto involucra "Cambiadero Change House"</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                              <div>
+                                <p className="font-medium">📋 Procesamiento:</p>
+                                <ul className="space-y-1 mt-1">
+                                  <li>• Trayectos completos y fragmentados</li>
+                                  <li>• Orden original preservado</li>
+                                  <li>• Filtrado Parqueadero ↔ Cambiadero</li>
+                                </ul>
+                              </div>
+                              <div>
+                                <p className="font-medium">⏰ Separación por Horarios:</p>
+                                <ul className="space-y-1 mt-1">
+                                  <li>• Ida: Por población (±10 min)</li>
+                                  <li>• Vuelta: CH (19:00) vs 5x2 (17:00) (±15 min)</li>
+                                  <li>• Formato: "HH:mm:ss" (24h)</li>
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
                         </AlertDescription>
                       </Alert>
                     </div>
@@ -3952,29 +4010,40 @@ export default function CSVAnalyzer() {
               </Card>
 
               {/* Información del algoritmo */}
-              <Alert>
-                <Clock className="h-4 w-4" />
-                <AlertTitle>Algoritmo de Clasificación por Horarios</AlertTitle>
-                <AlertDescription>
-                  <div className="mt-2 space-y-2 text-sm">
-                    <p><strong>PASO 1:</strong> Validación de lógica general (origen-destino válidos)</p>
-                    <p><strong>PASO 2:</strong> Si involucra Change House → aplicar clasificación por horario</p>
-                    <p><strong>PASO 3:</strong> Asignar al cambiadero virtual correspondiente</p>
-                    <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                              <Alert>
+                  <Clock className="h-4 w-4" />
+                  <AlertTitle>Algoritmo de Procesamiento Avanzado con Separación por Horarios</AlertTitle>
+                  <AlertDescription>
+                    <div className="mt-2 space-y-3 text-sm">
                       <div>
-                        <p className="font-medium">Viajes de Ida (Población → Cambiadero):</p>
-                        <p>• Fuente: Horario desde población</p>
-                        <p>• Tolerancia: ±10 minutos</p>
+                        <p className="font-medium">📋 Procesamiento General:</p>
+                        <p><strong>PASO 1:</strong> Validación de lógica general (Parqueadero ↔ Cambiadero válidos)</p>
+                        <p><strong>PASO 2:</strong> Procesamiento de trayectos completos y fragmentados</p>
+                        <p><strong>PASO 3:</strong> Preservación del orden original de registros</p>
+                        <p><strong>PASO 4:</strong> Filtrado inteligente de trayectos válidos</p>
                       </div>
                       <div>
-                        <p className="font-medium">Viajes de Vuelta (Cambiadero → Población):</p>
-                        <p>• Fuente: Horario desde cambiadero</p>
-                        <p>• Tolerancia: ±15 minutos</p>
+                        <p className="font-medium">⏰ Separación por Horarios (Solo Change House):</p>
+                        <p><strong>PASO 5:</strong> Si involucra "Cambiadero Change House" → aplicar clasificación por horario</p>
+                        <p><strong>PASO 6:</strong> Asignar al cambiadero virtual correspondiente (Change House vs 5x2)</p>
+                      </div>
+                      <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <p className="font-medium">Viajes de Ida (Población → Change House):</p>
+                          <p>• Fuente: Horario desde población</p>
+                          <p>• Tolerancia: ±10 minutos</p>
+                          <p>• 13 poblaciones con horarios específicos</p>
+                        </div>
+                        <div>
+                          <p className="font-medium">Viajes de Vuelta (Change House → Población):</p>
+                          <p>• Fuente: Horario desde cambiadero</p>
+                          <p>• Change House: 19:00 (±15 min)</p>
+                          <p>• 5x2: 17:00 (±15 min)</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </AlertDescription>
-              </Alert>
+                  </AlertDescription>
+                </Alert>
             </div>
           </motion.div>
         </TabsContent>
