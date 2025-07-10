@@ -771,7 +771,7 @@ export default function CSVAnalyzer() {
   const [query, setQuery] = useState<string>("")
   const [queryResults, setQueryResults] = useState<string[][]>([])
   const [activeTab, setActiveTab] = useState<string>("upload")
-  const [isPreview, setIsPreview] = useState(true)
+  const [isPreview, setIsPreview] = useState(false)
   const [delimiter, setDelimiter] = useState<string>(",")
   const [hasHeaderRow, setHasHeaderRow] = useState<boolean>(true)
   const [isProcessing, setIsProcessing] = useState<boolean>(false)
@@ -872,7 +872,7 @@ export default function CSVAnalyzer() {
     detailedLog: [],
   })
 
-  // Cargar datos de ejemplo para el preview
+  // Cargar datos de ejemplo para el preview (deshabilitado por defecto)
   useEffect(() => {
     if (isPreview) {
       setHeaders(SAMPLE_HEADERS)
@@ -881,15 +881,15 @@ export default function CSVAnalyzer() {
     }
   }, [isPreview])
 
-  // Efectuar procesamiento automático de datos de ejemplo después de que todo esté listo
-  useEffect(() => {
-    if (isPreview && csvData.length > 0 && !transformationComplete) {
-      setTimeout(() => {
-        console.log("Iniciando procesamiento automático de datos de ejemplo con separación de cambiaderos...")
-        transformDataAdvanced()
-      }, 500)
-    }
-  }, [isPreview, csvData, transformationComplete])
+  // Efectuar procesamiento automático de datos de ejemplo después de que todo esté listo (deshabilitado por defecto)
+  // useEffect(() => {
+  //   if (isPreview && csvData.length > 0 && !transformationComplete) {
+  //     setTimeout(() => {
+  //       console.log("Iniciando procesamiento automático de datos de ejemplo con separación de cambiaderos...")
+  //       transformDataAdvanced()
+  //     }, 500)
+  //   }
+  // }, [isPreview, csvData, transformationComplete])
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -2559,6 +2559,11 @@ export default function CSVAnalyzer() {
               Modo demostración con separación automática Change House vs 5x2
             </p>
           )}
+          {!isPreview && !fileName && (
+            <p className="text-sm text-muted-foreground mt-1">
+              Sistema de separación de cambiaderos por horarios - Carga tu archivo CSV para comenzar
+            </p>
+          )}
         </motion.div>
 
         <div className="flex flex-wrap gap-2">
@@ -2720,6 +2725,46 @@ export default function CSVAnalyzer() {
             onClick={() => {
               if (activeTab === "upload") {
                 document.getElementById("csv-file")?.click()
+              } else {
+                // Resetear el estado para nuevo análisis
+                setCsvData([])
+                setRawData("")
+                setHeaders([])
+                setFileName("")
+                setQuery("")
+                setQueryResults([])
+                setIsPreview(false)
+                setTransformationComplete(false)
+                setProcessedTrips([])
+                setStatistics(null)
+                setValidationResults({
+                  acceptedTrips: [],
+                  rejectedTrips: [],
+                  totalProcessed: 0,
+                  cambiaderoAssignments: { changeHouse: 0, fiveX2: 0, unassigned: 0 }
+                })
+                setClassificationResults({
+                  changeHouseDataset: [],
+                  fiveX2Dataset: [],
+                  unassignedDataset: [],
+                  statistics: {
+                    totalProcessed: 0,
+                    changeHouseCount: 0,
+                    fiveX2Count: 0,
+                    unassignedCount: 0,
+                    successRate: 0,
+                    errorsByCategory: {},
+                    distributionByPopulation: {}
+                  },
+                  detailedLog: []
+                })
+                setTransformedData([])
+                setActiveTab("upload")
+                // Limpiar el input de archivo
+                const fileInput = document.getElementById("csv-file") as HTMLInputElement
+                if (fileInput) {
+                  fileInput.value = ""
+                }
               }
             }}
           >
@@ -2861,12 +2906,12 @@ export default function CSVAnalyzer() {
                     </div>
                   </div>
 
-                  <div className="flex flex-col md:flex-row gap-4 border-t pt-4">
-                    <div className="flex-1 space-y-2">
-                      <Label htmlFor="hasHeader" className="text-base font-medium">
+                  <div className="flex justify-center border-t pt-4">
+                    <div className="max-w-md space-y-4">
+                      <Label className="text-base font-medium text-center block">
                         Opciones de configuración
                       </Label>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center justify-center space-x-2">
                         <Checkbox
                           id="hasHeader"
                           checked={hasHeaderRow}
@@ -2880,8 +2925,8 @@ export default function CSVAnalyzer() {
                         </label>
                       </div>
 
-                      <div className="space-y-1.5 mt-4">
-                        <Label htmlFor="delimiter">Delimitador</Label>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="delimiter" className="text-center block">Delimitador</Label>
                         <Select value={delimiter} onValueChange={setDelimiter}>
                           <SelectTrigger id="delimiter" className="w-full">
                             <SelectValue placeholder="Selecciona un delimitador" />
@@ -2893,22 +2938,6 @@ export default function CSVAnalyzer() {
                           </SelectContent>
                         </Select>
                       </div>
-                    </div>
-
-                    <div className="flex-1">
-                      {isPreview && (
-                        <div className="p-4 bg-muted rounded-md h-full flex flex-col justify-center">
-                          <h3 className="text-lg font-semibold mb-2">Vista previa con separación de cambiaderos</h3>
-                          <p className="text-sm text-muted-foreground mb-4">
-                            Los datos de ejemplo incluyen horarios de salida en formato 24h (HH:mm:ss) para demostrar la separación automática
-                            entre "Change House" y "5x2".
-                          </p>
-                          <Button variant="secondary" className="w-full" onClick={() => setActiveTab("data")}>
-                            <ExternalLink className="mr-2 h-4 w-4" />
-                            Ver datos de ejemplo
-                          </Button>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -2992,7 +3021,7 @@ export default function CSVAnalyzer() {
                         <Label htmlFor="assetColumn">Columna de Activo/Bus</Label>
                         <Select
                           value={columnMappings.assetExtra.toString()}
-                          onValueChange={(value) =>
+                          onValueChange={(value: string) =>
                             setColumnMappings({ ...columnMappings, assetExtra: Number.parseInt(value) })
                           }
                         >
@@ -3013,7 +3042,7 @@ export default function CSVAnalyzer() {
                         <Label htmlFor="departureColumn">Columna de Origen (Deparfrom)</Label>
                         <Select
                           value={columnMappings.deparfrom.toString()}
-                          onValueChange={(value) =>
+                          onValueChange={(value: string) =>
                             setColumnMappings({ ...columnMappings, deparfrom: Number.parseInt(value) })
                           }
                         >
@@ -3034,7 +3063,7 @@ export default function CSVAnalyzer() {
                         <Label htmlFor="arrivalColumn">Columna de Destino (Arriveat)</Label>
                         <Select
                           value={columnMappings.arriveat.toString()}
-                          onValueChange={(value) =>
+                          onValueChange={(value: string) =>
                             setColumnMappings({ ...columnMappings, arriveat: Number.parseInt(value) })
                           }
                         >
@@ -3055,7 +3084,7 @@ export default function CSVAnalyzer() {
                         <Label htmlFor="distanceColumn">Columna de Distancia</Label>
                         <Select
                           value={columnMappings.distance.toString()}
-                          onValueChange={(value) =>
+                          onValueChange={(value: string) =>
                             setColumnMappings({ ...columnMappings, distance: Number.parseInt(value) })
                           }
                         >
@@ -3079,7 +3108,7 @@ export default function CSVAnalyzer() {
                         </Label>
                         <Select
                           value={columnMappings.departureTime.toString()}
-                          onValueChange={(value) =>
+                          onValueChange={(value: string) =>
                             setColumnMappings({ ...columnMappings, departureTime: Number.parseInt(value) })
                           }
                         >
