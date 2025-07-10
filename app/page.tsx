@@ -16,7 +16,6 @@ import {
   ArrowRight,
   FileCheck,
   Database,
-  FileText,
   Check,
   AlertTriangle,
   Info,
@@ -25,6 +24,7 @@ import {
   Search,
   Loader2,
   ExternalLink,
+  Clock,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -38,35 +38,141 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { motion } from "framer-motion"
 
 // Importar componentes
-import LocationFilter from "./components/location-filter"
-import RouteSummary from "./components/route-summary"
-// import RouteMap from "./components/route-map"
-import StatsCard from "./components/stats-card"
+import LocationFilter from "../components/location-filter"
+import RouteSummary from "../components/route-summary"
+import StatsCard from "../components/stats-card"
 
 // Datos de ejemplo para el preview
-const SAMPLE_HEADERS = ["AssetExtra", "Deparfrom", "Arriveat", "Distance", "Date", "Driver"]
+const SAMPLE_HEADERS = ["AssetExtra", "Deparfrom", "Arriveat", "Distance", "Date", "Driver", "DepartureTime"]
 const SAMPLE_DATA = [
-  ["CAM001", "Madrid", "Barcelona", "621.5", "2023-05-10", "Juan Pérez"],
-  ["CAM001", "Barcelona", "Valencia", "351.2", "2023-05-11", "Juan Pérez"],
-  ["CAM002", "Valencia", "Sevilla", "662.8", "2023-05-10", "Ana García"],
-  ["CAM003", "Madrid", "Bilbao", "401.7", "2023-05-12", "Carlos López"],
-  ["CAM002", "Sevilla", "Madrid", "534.6", "2023-05-11", "Ana García"],
-  ["CAM001", "Valencia", "Madrid", "357.9", "2023-05-12", "Juan Pérez"],
-  ["CAM003", "Bilbao", "Barcelona", "620.3", "2023-05-13", "Carlos López"],
-  ["CAM004", "Barcelona", "Sevilla", "998.2", "2023-05-14", "María Rodríguez"],
-  ["CAM002", "Madrid", "Valencia", "357.9", "2023-05-13", "Ana García"],
-  ["CAM004", "Sevilla", "Madrid", "534.6", "2023-05-15", "María Rodríguez"],
-  ["CAM001", "Madrid", "Valencia", "357.9", "2023-05-13", "Juan Pérez"],
-  ["CAM003", "Barcelona", "Madrid", "621.5", "2023-05-14", "Carlos López"],
-  // Añadir más trayectos repetidos para mostrar la agrupación
-  ["CAM005", "Madrid", "Barcelona", "621.5", "2023-05-16", "Pedro Sánchez"],
-  ["CAM002", "Madrid", "Barcelona", "621.5", "2023-05-17", "Ana García"],
-  ["CAM001", "Madrid", "Barcelona", "621.5", "2023-05-18", "Juan Pérez"],
-  ["CAM003", "Madrid", "Valencia", "357.9", "2023-05-19", "Carlos López"],
-  ["CAM005", "Madrid", "Valencia", "357.9", "2023-05-20", "Pedro Sánchez"],
+  // === CASOS PARA DEMOSTRAR SEPARACIÓN AUTOMÁTICA ===
+  // Los datos llegan con destinos genéricos y el sistema debe clasificarlos por horario
+  
+  // Casos de ida que deberían clasificarse como Change House por horario
+  // Urumita: Change House (4:10 AM) vs 5x2 (5:05 AM)
+  [
+    "CAM001",
+    "Parqueadero Urumita",
+    "Cambiadero Change House", // Genérico - sistema debe clasificar
+    "621.5",
+    "2023-05-10",
+    "Juan Pérez",
+    "04:06:23", // Cerca de 04:10 → Change House
+  ],
+  
+  // Villanueva: Change House (4:15 AM) vs 5x2 (5:10 AM)  
+  [
+    "CAM002",
+    "Parqueadero Villanueva", 
+    "Cambiadero Change House", // Genérico - sistema debe clasificar
+    "534.6",
+    "2023-05-11",
+    "Ana García",
+    "04:12:15", // Cerca de 04:15 → Change House
+  ],
+  
+  // Valledupar: Change House (3:45 AM) vs 5x2 (4:45 AM)
+  [
+    "CAM003",
+    "Parqueadero Valledupar",
+    "Cambiadero Change House", // Genérico - sistema debe clasificar
+    "378.9",
+    "2023-05-12",
+    "Sofia Herrera",
+    "03:48:00", // Cerca de 03:45 → Change House
+  ],
+  
+  // Casos de ida que deberían clasificarse como 5x2 por horario
+  [
+    "CAM004",
+    "Parqueadero Urumita",
+    "Cambiadero Change House", // Genérico - sistema debe clasificar
+    "662.8",
+    "2023-05-10",
+    "Ana García",
+    "05:07:02", // Cerca de 05:05 → 5x2
+  ],
+  [
+    "CAM005",
+    "Parqueadero Villanueva",
+    "Cambiadero Change House", // Genérico - sistema debe clasificar
+    "620.3",
+    "2023-05-13",
+    "Carlos López",
+    "05:08:45", // Cerca de 05:10 → 5x2
+  ],
+  [
+    "CAM006",
+    "Parqueadero Valledupar", 
+    "Cambiadero Change House", // Genérico - sistema debe clasificar
+    "378.9",
+    "2023-05-14",
+    "Sofia Herrera", 
+    "04:42:00", // Cerca de 04:45 → 5x2
+  ],
+
+  // Casos de vuelta que deberían clasificarse como Change House por horario (7:00 PM)
+  [
+    "CAM007",
+    "Cambiadero Change House", // Genérico - sistema debe clasificar
+    "Parqueadero Urumita",
+    "351.2",
+    "2023-05-11",
+    "Juan Pérez",
+    "19:05:00", // Cerca de 19:00 → Change House
+  ],
+  [
+    "CAM008",
+    "Cambiadero Change House", // Genérico - sistema debe clasificar
+    "Parqueadero Villanueva",
+    "357.9",
+    "2023-05-12",
+    "Juan Pérez",
+    "18:58:30", // Cerca de 19:00 → Change House
+  ],
+
+  // Casos de vuelta que deberían clasificarse como 5x2 por horario (5:00 PM)
+  [
+    "CAM009",
+    "Cambiadero Change House", // Genérico - sistema debe clasificar
+    "Parqueadero Urumita",
+    "401.7",
+    "2023-05-12",
+    "Carlos López",
+    "17:05:00", // Cerca de 17:00 → 5x2
+  ],
+  [
+    "CAM010",
+    "Cambiadero Change House", // Genérico - sistema debe clasificar
+    "Parqueadero Villanueva",
+    "998.2",
+    "2023-05-14",
+    "María Rodríguez",
+    "16:58:20", // Cerca de 17:00 → 5x2
+  ],
+
+  // Casos fuera de rango que deberían quedar sin asignar
+  [
+    "CAM011",
+    "Parqueadero Urumita",
+    "Cambiadero Change House", // Genérico - sistema debe clasificar
+    "445.3",
+    "2023-05-15",
+    "Luis Gómez",
+    "03:30:00", // Fuera de rango → sin asignar
+  ],
+  [
+    "CAM012",
+    "Cambiadero Change House", // Genérico - sistema debe clasificar
+    "Parqueadero Urumita",
+    "445.3",
+    "2023-05-15",
+    "Luis Gómez",
+    "20:30:00", // Fuera de rango → sin asignar
+  ],
 ]
 
-// Lista válida de ubicaciones permitidas (exacta de la macro)
+// Lista válida de ubicaciones permitidas (actualizada con los nuevos cambiaderos)
 const ALLOWED_LOCATIONS = [
   "Parqueadero Urumita",
   "Parqueadero Villanueva",
@@ -87,9 +193,10 @@ const ALLOWED_LOCATIONS = [
   "Cambiadero Annex",
   "Cambiadero La Puente",
   "Cambiadero Change House",
+  "Cambiadero 5x2",
 ]
 
-// Diccionario de reemplazos específicos (exacto de la macro)
+// Diccionario de reemplazos específicos (actualizado)
 const LOCATION_NORMALIZATION: Record<string, string> = {
   "Hotel Waya": "Parqueadero Waya",
   "Parqueadero San Juan 2": "Parqueadero San Juan",
@@ -109,6 +216,7 @@ const LOCATION_NORMALIZATION: Record<string, string> = {
 
   // Nuevos reemplazos para Cambiaderos
   "Cambiadero Annex, Mina-60 Km/h, PCT7-Tajo Tabaco": "Cambiadero Annex",
+  "Mina-60 Km/h, PCT7-Tajo Tabaco": "Cambiadero Annex",
 
   "Cambiadero Change House, Vias Administrativos- 45Km/h": "Cambiadero Change House",
   "Cambiadero Change House, PC20.Administrativo 1, Vias Administrativos- 45Km/h": "Cambiadero Change House",
@@ -117,6 +225,269 @@ const LOCATION_NORMALIZATION: Record<string, string> = {
   "Cambiadero La Puente, Mina-60 Km/h": "Cambiadero La Puente",
   "Cambiadero Patilla, Mina-60 Km/h": "Cambiadero Patilla",
   "Cambiadero Oreganal, Mina-60 Km/h, PCT5.Tajo Oreganal,Tajo100,Tajo Comuneros": "Cambiadero Oreganal",
+
+  // Reemplazos para Valledupar
+  "80, 200008 Valledupar, Colombia": "Parqueadero Valledupar",
+  "Carrera 22 BIS, 200005 Valledupar, Colombia": "Parqueadero Valledupar",
+  "Valledupar Zona Urbana": "Parqueadero Valledupar",
+}
+
+// HORARIOS DE REFERENCIA PARA SEPARACIÓN DE CAMBIADEROS
+
+// Horarios de ida (población → cambiadero) - Formato 24h
+const OUTBOUND_SCHEDULES = {
+  "Parqueadero Urumita": { "Change House": "04:10:00", "5x2": "05:05:00" },
+  "Parqueadero Villanueva": { "Change House": "04:15:00", "5x2": "05:10:00" },
+  "Parqueadero San Juan": { "Change House": "04:35:00", "5x2": "05:35:00" },
+  "Parqueadero Valledupar": { "Change House": "03:45:00", "5x2": "04:45:00" },
+  "Parqueadero Fonseca": { "Change House": "05:00:00", "5x2": "06:00:00" },
+  "Parqueadero Barrancas": { "Change House": "05:10:00", "5x2": "06:10:00" },
+  "Parqueadero HatoNuevo": { "Change House": "05:20:00", "5x2": "06:20:00" },
+  "Parqueadero Riohacha": { "Change House": "04:30:00", "5x2": "05:20:00" },
+  "Parqueadero Maicao": { "Change House": "05:00:00", "5x2": "05:50:00" },
+  "Parqueadero Uribia": { "Change House": "04:20:00", "5x2": null },
+  "Parqueadero Tomarrazon": { "Change House": "04:40:00", "5x2": null },
+  "Parqueadero Albania": { "Change House": "05:30:00", "5x2": "06:40:00" },
+  "Parqueadero Alojamiento": { "Change House": "05:40:00", "5x2": null },
+}
+
+// Horarios de vuelta (cambiadero → población) - Formato 24h
+const RETURN_SCHEDULES = {
+  "Change House": "19:00:00", // 7:00 PM
+  "5x2": "17:00:00", // 5:00 PM
+}
+
+// Función para parsear hora del CSV (actualizada para formato 24h)
+function parseExcelTime(timeStr: string): number | null {
+  if (!timeStr || typeof timeStr !== "string") return null
+  
+  const clean = timeStr.trim()
+  
+  // Primero intentar formato 24 horas: HH:mm:ss (ej: 06:08:27, 15:38:30)
+  const format24Match = clean.match(/^(\d{1,2}):(\d{2}):(\d{2})$/)
+  if (format24Match) {
+    const [_, hourStr, minStr, secStr] = format24Match
+    const hour = parseInt(hourStr, 10)
+    const min = parseInt(minStr, 10)
+    const sec = parseInt(secStr, 10)
+    
+    // Validar rangos
+    if (hour >= 0 && hour <= 23 && min >= 0 && min <= 59 && sec >= 0 && sec <= 59) {
+      const result = hour * 60 + min + sec / 60 // minutos decimales
+      console.log(`✅ Hora parseada (24h): "${timeStr}" -> ${hour}:${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')} = ${result} minutos`)
+      return result
+    }
+  }
+  
+  // Fallback: formato AM/PM para compatibilidad (ej: "4:10:00 a. m.")
+  const cleanAmPm = clean.replace(/[\.\s]+/g, " ").replace(/([ap]) m/, "$1m")
+  const formatAmPmMatch = cleanAmPm.match(/^(\d{1,2}):(\d{2}):(\d{2})\s([ap]m)$/i)
+  if (formatAmPmMatch) {
+    let [_, hourStr, minStr, secStr, period] = formatAmPmMatch
+    const hourNum = parseInt(hourStr, 10)
+    const minNum = parseInt(minStr, 10)
+    const secNum = parseInt(secStr, 10)
+    let hour = hourNum
+    if (period.toLowerCase() === "pm" && hour !== 12) hour += 12
+    if (period.toLowerCase() === "am" && hour === 12) hour = 0
+    const result = hour * 60 + minNum + secNum / 60 // minutos decimales
+    console.log(`✅ Hora parseada (AM/PM): "${timeStr}" -> ${hour}:${minNum}:${secNum} ${period} = ${result} minutos`)
+    return result
+  }
+  
+  console.log(`❌ No se pudo parsear la hora: "${timeStr}" (formatos soportados: HH:mm:ss o h:mm:ss a.m./p.m.)`)
+  return null
+}
+
+// Función para parsear hora de referencia (usa la misma lógica que parseExcelTime)
+function parseReferenceTime(timeStr: string): number {
+  return parseExcelTime(timeStr) ?? 0
+}
+
+// Función mejorada para determinar el cambiadero basado en horario según especificaciones exactas
+function determineCambiadero(
+  origin: string,
+  destination: string,
+  departureTime: string,
+): { cambiadero: string | null; reason: string; isValid: boolean; category: string } {
+  console.log(`🔍 Analizando separación: ${origin} → ${destination} a las ${departureTime}`)
+  
+  // PASO 1: Validar que el horario esté disponible
+  if (!departureTime || departureTime.trim() === "") {
+    return {
+      cambiadero: null,
+      reason: "Sin horario para clasificar",
+      isValid: false,
+      category: "sin_horario"
+    }
+  }
+
+  const parsedTime = parseExcelTime(departureTime)
+  if (parsedTime === null) {
+    return {
+      cambiadero: null,
+      reason: `Formato de hora inválido: ${departureTime}`,
+      isValid: false,
+      category: "formato_invalido"
+    }
+  }
+
+  // PASO 2: Identificar si es un trayecto que involucra Change House (aplicar criterios de aplicación)
+  const isOutboundToChangeHouse = origin.startsWith("Parqueadero") && 
+    (destination === "Cambiadero Change House" || destination === "Cambiadero 5x2")
+  const isReturnFromChangeHouse = 
+    (origin === "Cambiadero Change House" || origin === "Cambiadero 5x2") && 
+    destination.startsWith("Parqueadero")
+
+  const isRelevant = isOutboundToChangeHouse || isReturnFromChangeHouse
+
+  if (!isRelevant) {
+    return {
+      cambiadero: null,
+      reason: "No aplica separación por horario (no es Change House ni 5x2)",
+      isValid: true,
+      category: "no_aplica"
+    }
+  }
+
+  // PASO 3: Aplicar algoritmo de clasificación según especificaciones
+  if (isOutboundToChangeHouse) {
+    // VIAJES DE IDA: Población → Cambiadero
+    // Fuente: Horario de salida desde la POBLACIÓN (origen)
+    // Tolerancia: ±10 minutos
+    
+    const populationSchedules = OUTBOUND_SCHEDULES[origin as keyof typeof OUTBOUND_SCHEDULES]
+    if (!populationSchedules) {
+      return {
+        cambiadero: null,
+        reason: `Sin horarios definidos para ${origin}`,
+        isValid: false,
+        category: "sin_horarios_poblacion"
+      }
+    }
+
+    const tolerance = 10 // ±10 minutos para viajes de ida
+    let matches: { cambiadero: string; diff: number; refHour: string }[] = []
+
+    // Verificar Change House
+    if (populationSchedules["Change House"]) {
+      const refTime = parseExcelTime(populationSchedules["Change House"])
+      if (refTime !== null) {
+        const diff = Math.abs(parsedTime - refTime)
+        matches.push({ 
+          cambiadero: "Cambiadero Change House", 
+          diff, 
+          refHour: populationSchedules["Change House"] 
+        })
+      }
+    }
+
+    // Verificar 5x2 (solo si está definido para esa población)
+    if (populationSchedules["5x2"]) {
+      const refTime = parseExcelTime(populationSchedules["5x2"])
+      if (refTime !== null) {
+        const diff = Math.abs(parsedTime - refTime)
+        matches.push({ 
+          cambiadero: "Cambiadero 5x2", 
+          diff, 
+          refHour: populationSchedules["5x2"] 
+        })
+      }
+    }
+
+    // Buscar coincidencias dentro de tolerancia
+    const inRange = matches.filter((m) => m.diff <= tolerance)
+    
+    if (inRange.length === 1) {
+      return {
+        cambiadero: inRange[0].cambiadero,
+        reason: `Clasificado como ${inRange[0].cambiadero} por horario ${departureTime} desde ${origin} (±${tolerance} min de ${inRange[0].refHour})`,
+        isValid: true,
+        category: "ida_asignado"
+      }
+    } else if (inRange.length > 1) {
+      // Resolución de conflictos: asignar al más cercano
+      const best = inRange.reduce((a, b) => (a.diff < b.diff ? a : b))
+      return {
+        cambiadero: best.cambiadero,
+        reason: `Clasificado como ${best.cambiadero} por proximidad temporal desde ${origin} (diferencia: ${best.diff.toFixed(1)} min)`,
+        isValid: true,
+        category: "ida_conflicto_resuelto"
+      }
+    } else {
+      return {
+        cambiadero: null,
+        reason: `Horario ${departureTime} desde ${origin} fuera de rango (±${tolerance} min)`,
+        isValid: false,
+        category: "ida_fuera_rango"
+      }
+    }
+    
+  } else if (isReturnFromChangeHouse) {
+    // VIAJES DE VUELTA: Cambiadero → Población
+    // Fuente: Horario de salida desde el CAMBIADERO (origen)
+    // Tolerancia: ±15 minutos
+    
+    const tolerance = 15 // ±15 minutos para viajes de vuelta
+    let matches: { cambiadero: string; diff: number; refHour: string }[] = []
+
+    // Verificar Change House (7:00 PM)
+    const refCH = parseExcelTime(RETURN_SCHEDULES["Change House"])
+    if (refCH !== null) {
+      const diff = Math.abs(parsedTime - refCH)
+      matches.push({ 
+        cambiadero: "Cambiadero Change House", 
+        diff, 
+        refHour: RETURN_SCHEDULES["Change House"] 
+      })
+    }
+
+    // Verificar 5x2 (5:00 PM)
+    const ref5x2 = parseExcelTime(RETURN_SCHEDULES["5x2"])
+    if (ref5x2 !== null) {
+      const diff = Math.abs(parsedTime - ref5x2)
+      matches.push({ 
+        cambiadero: "Cambiadero 5x2", 
+        diff, 
+        refHour: RETURN_SCHEDULES["5x2"] 
+      })
+    }
+
+    const inRange = matches.filter((m) => m.diff <= tolerance)
+    
+    if (inRange.length === 1) {
+      return {
+        cambiadero: inRange[0].cambiadero,
+        reason: `Clasificado como ${inRange[0].cambiadero} por horario de salida ${departureTime} (±${tolerance} min de ${inRange[0].refHour})`,
+        isValid: true,
+        category: "vuelta_asignado"
+      }
+    } else if (inRange.length > 1) {
+      // Resolución de conflictos: asignar al más cercano
+      const best = inRange.reduce((a, b) => (a.diff < b.diff ? a : b))
+      return {
+        cambiadero: best.cambiadero,
+        reason: `Clasificado como ${best.cambiadero} por proximidad temporal (diferencia: ${best.diff.toFixed(1)} min)`,
+        isValid: true,
+        category: "vuelta_conflicto_resuelto"
+      }
+    } else {
+      return {
+        cambiadero: null,
+        reason: `Horario ${departureTime} fuera de rango para cambiaderos (±${tolerance} min)`,
+        isValid: false,
+        category: "vuelta_fuera_rango"
+      }
+    }
+  }
+
+  // Caso no contemplado
+  return {
+    cambiadero: null,
+    reason: "Tipo de trayecto no reconocido para separación por horario",
+    isValid: false,
+    category: "no_reconocido"
+  }
 }
 
 // Función para normalizar nombres de ubicaciones siguiendo la lógica de la macro
@@ -143,6 +514,231 @@ const normalizeLocation = (location: string): string => {
   return ""
 }
 
+// Función ultra-estricta para validar ubicaciones específicas
+const validateLocationExact = (
+  location: string,
+): {
+  isValid: boolean
+  type: "Parqueadero" | "Cambiadero" | "Inválido"
+  normalizedName: string
+  reason?: string
+} => {
+  const normalized = normalizeLocation(location)
+
+  if (!normalized || normalized === "") {
+    return {
+      isValid: false,
+      type: "Inválido",
+      normalizedName: "",
+      reason: `Ubicación "${location}" no reconocida en la lista permitida`,
+    }
+  }
+
+  // Verificar tipo exacto
+  if (normalized.startsWith("Parqueadero ")) {
+    const parkingName = normalized.replace("Parqueadero ", "")
+    return {
+      isValid: true,
+      type: "Parqueadero",
+      normalizedName: normalized,
+      reason: `Parqueadero "${parkingName}" validado correctamente`,
+    }
+  } else if (normalized.startsWith("Cambiadero ")) {
+    const changeName = normalized.replace("Cambiadero ", "")
+    return {
+      isValid: true,
+      type: "Cambiadero",
+      normalizedName: normalized,
+      reason: `Cambiadero "${changeName}" validado correctamente`,
+    }
+  } else {
+    return {
+      isValid: false,
+      type: "Inválido",
+      normalizedName: normalized,
+      reason: `Ubicación "${normalized}" no cumple con el formato esperado (Parqueadero/Cambiadero + Nombre)`,
+    }
+  }
+}
+
+// Lista de restricciones específicas de rutas no permitidas
+const ROUTE_RESTRICTIONS = [
+  {
+    origin: "Cambiadero Annex",
+    destination: "Parqueadero Fonseca",
+    reason: "❌ Ruta no permitida: Cambiadero Annex no debe conectar con Parqueadero Fonseca",
+  },
+  {
+    origin: "Parqueadero Fonseca",
+    destination: "Cambiadero Annex",
+    reason: "❌ Ruta no permitida: Parqueadero Fonseca no debe conectar con Cambiadero Annex",
+  },
+  {
+    origin: "Parqueadero Alojamiento",
+    destination: "Cambiadero Annex",
+    reason: "❌ Ruta no permitida: Parqueadero Alojamiento no debe conectar con Cambiadero Annex",
+  },
+  {
+    origin: "Cambiadero Annex",
+    destination: "Parqueadero Alojamiento",
+    reason: "❌ Ruta no permitida: Cambiadero Annex no debe conectar con Parqueadero Alojamiento",
+  },
+  {
+    origin: "Parqueadero San Juan",
+    destination: "Cambiadero Annex",
+    reason: "❌ Ruta no permitida: Parqueadero San Juan no debe conectar con Cambiadero Annex",
+  },
+  {
+    origin: "Cambiadero Annex",
+    destination: "Parqueadero San Juan",
+    reason: "❌ Ruta no permitida: Cambiadero Annex no debe conectar con Parqueadero San Juan",
+  },
+]
+
+// Función para verificar restricciones específicas de rutas
+const checkRouteRestrictions = (
+  origin: string,
+  destination: string,
+): {
+  isRestricted: boolean
+  reason?: string
+} => {
+  for (const restriction of ROUTE_RESTRICTIONS) {
+    if (restriction.origin === origin && restriction.destination === destination) {
+      return {
+        isRestricted: true,
+        reason: restriction.reason,
+      }
+    }
+  }
+  return { isRestricted: false }
+}
+
+// Función mejorada y más estricta para validar rutas Parqueadero ↔ Cambiadero
+const isValidParqueaderoCambiaderoStrict = (
+  origin: string,
+  destination: string,
+): {
+  isValid: boolean
+  direction: "Ida" | "Vuelta" | "Inválido"
+  reason?: string
+  originValidation?: ReturnType<typeof validateLocationExact>
+  destinationValidation?: ReturnType<typeof validateLocationExact>
+} => {
+  // Verificar que ambas ubicaciones estén definidas y no vacías
+  if (!origin || !destination || origin.trim() === "" || destination.trim() === "") {
+    return {
+      isValid: false,
+      direction: "Inválido",
+      reason: "Origen o destino vacío o no definido",
+    }
+  }
+
+  // Validación ultra-estricta de ubicaciones individuales
+  const originValidation = validateLocationExact(origin)
+  const destinationValidation = validateLocationExact(destination)
+
+  if (!originValidation.isValid) {
+    return {
+      isValid: false,
+      direction: "Inválido",
+      reason: `Origen inválido: ${originValidation.reason}`,
+      originValidation,
+      destinationValidation,
+    }
+  }
+
+  if (!destinationValidation.isValid) {
+    return {
+      isValid: false,
+      direction: "Inválido",
+      reason: `Destino inválido: ${destinationValidation.reason}`,
+      originValidation,
+      destinationValidation,
+    }
+  }
+
+  // Verificar que origen y destino sean diferentes
+  if (originValidation.normalizedName === destinationValidation.normalizedName) {
+    return {
+      isValid: false,
+      direction: "Inválido",
+      reason: "Origen y destino son la misma ubicación",
+      originValidation,
+      destinationValidation,
+    }
+  }
+
+  // VERIFICAR RESTRICCIONES ESPECÍFICAS DE RUTAS
+  const restrictionCheck = checkRouteRestrictions(originValidation.normalizedName, destinationValidation.normalizedName)
+  if (restrictionCheck.isRestricted) {
+    return {
+      isValid: false,
+      direction: "Inválido",
+      reason: restrictionCheck.reason,
+      originValidation,
+      destinationValidation,
+    }
+  }
+
+  // VALIDACIÓN ESTRICTA DE TIPOS Y DIRECCIONES
+
+  // CASO 1: Viaje de IDA - Parqueadero → Cambiadero (ULTRA ESTRICTO)
+  if (originValidation.type === "Parqueadero" && destinationValidation.type === "Cambiadero") {
+    return {
+      isValid: true,
+      direction: "Ida",
+      reason: `✅ Viaje de IDA válido: ${originValidation.normalizedName} → ${destinationValidation.normalizedName}`,
+      originValidation,
+      destinationValidation,
+    }
+  }
+
+  // CASO 2: Viaje de VUELTA - Cambiadero → Parqueadero (ULTRA ESTRICTO)
+  if (originValidation.type === "Cambiadero" && destinationValidation.type === "Parqueadero") {
+    return {
+      isValid: true,
+      direction: "Vuelta",
+      reason: `✅ Viaje de VUELTA válido: ${originValidation.normalizedName} → ${destinationValidation.normalizedName}`,
+      originValidation,
+      destinationValidation,
+    }
+  }
+
+  // CASOS INVÁLIDOS ESPECÍFICOS:
+
+  // Parqueadero → Parqueadero
+  if (originValidation.type === "Parqueadero" && destinationValidation.type === "Parqueadero") {
+    return {
+      isValid: false,
+      direction: "Inválido",
+      reason: `❌ Viaje entre Parqueaderos no permitido: ${originValidation.normalizedName} → ${destinationValidation.normalizedName}`,
+      originValidation,
+      destinationValidation,
+    }
+  }
+
+  // Cambiadero → Cambiadero
+  if (originValidation.type === "Cambiadero" && destinationValidation.type === "Cambiadero") {
+    return {
+      isValid: false,
+      direction: "Inválido",
+      reason: `❌ Viaje entre Cambiaderos no permitido: ${originValidation.normalizedName} → ${destinationValidation.normalizedName}`,
+      originValidation,
+      destinationValidation,
+    }
+  }
+
+  // Cualquier otro caso no contemplado
+  return {
+    isValid: false,
+    direction: "Inválido",
+    reason: `❌ Tipo de viaje no válido: ${originValidation.type} → ${destinationValidation.type}`,
+    originValidation,
+    destinationValidation,
+  }
+}
+
 // Tipo para representar un trayecto procesado
 interface ProcessedTrip {
   asset: string
@@ -154,6 +750,9 @@ interface ProcessedTrip {
   date?: string
   driver?: string
   intermediateRows: number[]
+  departureTime?: string
+  assignedCambiadero?: string
+  cambiaderoReason?: string
 }
 
 // Función para formatear números en formato colombiano
@@ -173,7 +772,6 @@ export default function CSVAnalyzer() {
   const [queryResults, setQueryResults] = useState<string[][]>([])
   const [activeTab, setActiveTab] = useState<string>("upload")
   const [isPreview, setIsPreview] = useState(true)
-  // const [selectedRoute, setSelectedRoute] = useState<string | null>(null)
   const [delimiter, setDelimiter] = useState<string>(",")
   const [hasHeaderRow, setHasHeaderRow] = useState<boolean>(true)
   const [isProcessing, setIsProcessing] = useState<boolean>(false)
@@ -183,11 +781,13 @@ export default function CSVAnalyzer() {
     deparfrom: number
     arriveat: number
     distance: number
+    departureTime: number
   }>({
     assetExtra: 0,
     deparfrom: 1,
     arriveat: 2,
     distance: 3,
+    departureTime: 6,
   })
   const [transformedData, setTransformedData] = useState<string[][]>([])
   const [transformationComplete, setTransformationComplete] = useState<boolean>(false)
@@ -204,21 +804,92 @@ export default function CSVAnalyzer() {
     uniqueAssets: number
     completeTrips: number
     fragmentedTrips: number
+    changeHouseTrips: number
+    fiveX2Trips: number
+    unassignedTrips: number
   } | null>(null)
 
   // Añadir estado para las ubicaciones filtradas
   const [filteredLocations, setFilteredLocations] = useState<string[]>(ALLOWED_LOCATIONS)
   const [searchTerm, setSearchTerm] = useState<string>("")
 
+  // Nuevo estado para rastrear validaciones y rechazos
+  const [validationResults, setValidationResults] = useState<{
+    acceptedTrips: Array<{ asset: string; route: string; direction: string; type: string; cambiadero?: string }>
+    rejectedTrips: Array<{ asset: string; route: string; reason: string; type: string }>
+    totalProcessed: number
+    cambiaderoAssignments: {
+      changeHouse: number
+      fiveX2: number
+      unassigned: number
+    }
+  }>({
+    acceptedTrips: [],
+    rejectedTrips: [],
+    totalProcessed: 0,
+    cambiaderoAssignments: {
+      changeHouse: 0,
+      fiveX2: 0,
+      unassigned: 0,
+    },
+  })
+
+  // Nuevo estado para el Sistema de Separación de Cambiaderos
+  const [classificationResults, setClassificationResults] = useState<{
+    changeHouseDataset: string[][]
+    fiveX2Dataset: string[][]
+    unassignedDataset: string[][]
+    statistics: {
+      totalProcessed: number
+      changeHouseCount: number
+      fiveX2Count: number
+      unassignedCount: number
+      successRate: number
+      errorsByCategory: Record<string, number>
+      distributionByPopulation: Record<string, { changeHouse: number; fiveX2: number; unassigned: number }>
+    }
+    detailedLog: Array<{
+      asset: string
+      route: string
+      departureTime: string
+      assignedTo: string
+      reason: string
+      category: string
+    }>
+  }>({
+    changeHouseDataset: [],
+    fiveX2Dataset: [],
+    unassignedDataset: [],
+    statistics: {
+      totalProcessed: 0,
+      changeHouseCount: 0,
+      fiveX2Count: 0,
+      unassignedCount: 0,
+      successRate: 0,
+      errorsByCategory: {},
+      distributionByPopulation: {},
+    },
+    detailedLog: [],
+  })
+
   // Cargar datos de ejemplo para el preview
   useEffect(() => {
     if (isPreview) {
       setHeaders(SAMPLE_HEADERS)
       setCsvData(SAMPLE_DATA)
-      setTransformedData(SAMPLE_DATA)
-      setTransformationComplete(true)
+      setTransformationComplete(false)
     }
   }, [isPreview])
+
+  // Efectuar procesamiento automático de datos de ejemplo después de que todo esté listo
+  useEffect(() => {
+    if (isPreview && csvData.length > 0 && !transformationComplete) {
+      setTimeout(() => {
+        console.log("Iniciando procesamiento automático de datos de ejemplo con separación de cambiaderos...")
+        transformDataAdvanced()
+      }, 500)
+    }
+  }, [isPreview, csvData, transformationComplete])
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -299,24 +970,30 @@ export default function CSVAnalyzer() {
 
         return result
       })
-      .filter((row) => row !== null && row.some((cell) => cell !== ""))
+      .filter((row): row is string[] => row !== null && row.some((cell) => cell !== ""))
 
     console.log(`CSV procesado: ${parsedData.length} filas encontradas`)
     setProcessProgress(90)
 
     if (parsedData.length > 0) {
-      if (hasHeaderRow) {
+      if (hasHeaderRow && parsedData[0]) {
         setHeaders(parsedData[0])
         setCsvData(parsedData.slice(1))
       } else {
         // Si no hay encabezados, crear encabezados genéricos
-        const genericHeaders = Array.from({ length: parsedData[0].length }, (_, i) => `Columna ${i + 1}`)
-        setHeaders(genericHeaders)
-        setCsvData(parsedData)
+        const firstRow = parsedData[0]
+        if (firstRow) {
+          const genericHeaders = Array.from({ length: firstRow.length }, (_, i) => `Columna ${i + 1}`)
+          setHeaders(genericHeaders)
+          setCsvData(parsedData)
+        }
       }
 
       // Intentar detectar automáticamente las columnas
-      detectColumns(parsedData[0])
+      const firstRow = parsedData[0]
+      if (firstRow) {
+        detectColumns(firstRow)
+      }
       setProcessProgress(100)
 
       setTimeout(() => {
@@ -342,16 +1019,259 @@ export default function CSVAnalyzer() {
         mapping.arriveat = index
       } else if (lowerHeader.includes("dist") || lowerHeader.includes("km")) {
         mapping.distance = index
+      } else if (lowerHeader.includes("departure") || lowerHeader.includes("time") || lowerHeader.includes("hora")) {
+        mapping.departureTime = index
       }
     })
 
     setColumnMappings(mapping)
   }
 
-  // Nueva función para procesar trayectos completos y fragmentados
+  // Helpers para lógica de Annex y vuelta
+  const ANNEX_FINAL_DEST = "Cambiadero Annex"
+  const ANNEX_INTERMEDIATE_STOPS = ["Parqueadero San Juan", "Parqueadero Fonseca"]
+  const ANNEX_ORIGINS = ["Parqueadero Urumita", "Parqueadero Valledupar", "Parqueadero Waya"]
+  const ANNEX_RETURN_DESTS = ["Parqueadero Urumita", "Parqueadero Valledupar", "Parqueadero Waya"]
+
+  function isAnnexOrigin(location: string) {
+    return ANNEX_ORIGINS.includes(location)
+  }
+  function isAnnexIntermediateStop(location: string) {
+    return ANNEX_INTERMEDIATE_STOPS.includes(location)
+  }
+  function isAnnexFinalDest(location: string) {
+    return location === ANNEX_FINAL_DEST
+  }
+  function isAnnexReturnDest(location: string) {
+    return ANNEX_RETURN_DESTS.includes(location)
+  }
+
+  // Función auxiliar para procesar trayectos fragmentados que inician con origen (MEJORADA)
+  const processFragmentedTripFromOrigin = (
+    data: string[][],
+    asset: string,
+    assetRowIndexes: number[],
+    startIndex: number,
+    origin: string,
+  ): ProcessedTrip | null => {
+    let totalDistance = 0
+    let destination = ""
+    let endRowIndex = assetRowIndexes[startIndex]
+    const intermediateRows: number[] = []
+    const startRowIndex = assetRowIndexes[startIndex]
+
+    // Obtener datos de la fila inicial
+    const startRow = data[startRowIndex]
+    const startDate = startRow[headers.findIndex((h) => h.toLowerCase().includes("date"))] || undefined
+    const startDriver = startRow[headers.findIndex((h) => h.toLowerCase().includes("driver"))] || undefined
+    const departureTime = startRow[columnMappings.departureTime] || undefined
+
+    // Sumar distancia de la fila inicial
+    totalDistance += Number.parseFloat(startRow[columnMappings.distance]) || 0
+
+    // Buscar hacia adelante hasta encontrar el destino
+    for (let i = startIndex + 1; i < assetRowIndexes.length; i++) {
+      const currentRowIndex = assetRowIndexes[i]
+      const currentRow = data[currentRowIndex]
+      const currentArrival = normalizeLocation(currentRow[columnMappings.arriveat])
+      const currentDistance = Number.parseFloat(currentRow[columnMappings.distance]) || 0
+
+      totalDistance += currentDistance
+      intermediateRows.push(currentRowIndex)
+      endRowIndex = currentRowIndex
+
+      // Lógica especial para trayectos hacia Annex
+      if (isAnnexOrigin(origin)) {
+        if (isAnnexIntermediateStop(currentArrival)) {
+          // Ignorar como destino final, continuar buscando
+          continue
+        }
+        if (isAnnexFinalDest(currentArrival)) {
+          destination = currentArrival
+          break
+        }
+      } else {
+        // Lógica normal: si encontramos un destino válido, terminar el trayecto
+        if (currentArrival) {
+          destination = currentArrival
+          break
+        }
+      }
+    }
+
+    // Aplicar lógica de separación de cambiaderos ANTES de la validación final
+    let finalOrigin = origin
+    let finalDestination = destination
+    let assignedCambiadero = ""
+    let cambiaderoReason = "No aplica separación"
+
+    // Solo si involucra el cambiadero Change House (que debe ser separado), aplicar separación por horario
+    const involvesChangeHouse = 
+      destination === "Cambiadero Change House" || 
+      origin === "Cambiadero Change House"
+
+    if (involvesChangeHouse && departureTime) {
+      const cambiaderoResult = determineCambiadero(origin, destination, departureTime)
+      if (cambiaderoResult.isValid && cambiaderoResult.cambiadero) {
+        // Reemplazar el cambiadero genérico con el específico
+        if (origin === "Cambiadero Change House") {
+          finalOrigin = cambiaderoResult.cambiadero
+        } else if (destination === "Cambiadero Change House") {
+          finalDestination = cambiaderoResult.cambiadero
+        }
+        assignedCambiadero = cambiaderoResult.cambiadero
+        cambiaderoReason = cambiaderoResult.reason
+      } else {
+        // Si no se puede clasificar por horario, mantener genérico pero marcar como no asignado
+        cambiaderoReason = cambiaderoResult.reason
+        assignedCambiadero = destination.startsWith("Cambiadero") ? destination : origin
+      }
+    } else if (involvesChangeHouse) {
+      // Si involucra cambiaderos pero no hay horario
+      cambiaderoReason = "Sin horario disponible para clasificar"
+      assignedCambiadero = destination.startsWith("Cambiadero") ? destination : origin
+    }
+
+    // Verificar si el trayecto es válido usando la función estricta
+    const validation = isValidParqueaderoCambiaderoStrict(finalOrigin, finalDestination)
+    if (validation.isValid) {
+      return {
+        asset,
+        origin: finalOrigin,
+        destination: finalDestination,
+        totalDistance,
+        startRowIndex,
+        endRowIndex,
+        date: startDate,
+        driver: startDriver,
+        intermediateRows,
+        departureTime,
+        assignedCambiadero,
+        cambiaderoReason,
+      }
+    } else {
+      console.log(`Trayecto fragmentado rechazado para ${asset}: ${validation.reason}`)
+      return null
+    }
+  }
+
+  // Función auxiliar para procesar trayectos fragmentados que inician con destino (MEJORADA)
+  const processFragmentedTripFromDestination = (
+    data: string[][],
+    asset: string,
+    assetRowIndexes: number[],
+    startIndex: number,
+    destination: string,
+  ): ProcessedTrip | null => {
+    let totalDistance = 0
+    let origin = ""
+    let startRowIndex = assetRowIndexes[startIndex]
+    const intermediateRows: number[] = []
+    const endRowIndex = assetRowIndexes[startIndex]
+
+    // Obtener datos de la fila inicial
+    const endRow = data[endRowIndex]
+    const endDate = endRow[headers.findIndex((h) => h.toLowerCase().includes("date"))] || undefined
+    const endDriver = endRow[headers.findIndex((h) => h.toLowerCase().includes("driver"))] || undefined
+    const departureTime = endRow[columnMappings.departureTime] || undefined
+
+    // Sumar distancia de la fila inicial
+    totalDistance += Number.parseFloat(endRow[columnMappings.distance]) || 0
+
+    // Buscar hacia atrás hasta encontrar el origen
+    for (let i = startIndex - 1; i >= 0; i--) {
+      const currentRowIndex = assetRowIndexes[i]
+      const currentRow = data[currentRowIndex]
+      const currentDeparture = normalizeLocation(currentRow[columnMappings.deparfrom])
+      const currentDistance = Number.parseFloat(currentRow[columnMappings.distance]) || 0
+
+      totalDistance += currentDistance
+      intermediateRows.unshift(currentRowIndex) // Agregar al inicio para mantener orden
+      startRowIndex = currentRowIndex
+
+      // Lógica especial para trayectos de vuelta desde Annex
+      if (isAnnexFinalDest(destination)) {
+        if (isAnnexIntermediateStop(currentDeparture)) {
+          // Ignorar como origen final, continuar buscando
+          continue
+        }
+        if (isAnnexReturnDest(currentDeparture)) {
+          origin = currentDeparture
+          break
+        }
+      } else {
+        // Lógica normal: si encontramos un origen válido, terminar el trayecto
+        if (currentDeparture) {
+          origin = currentDeparture
+          break
+        }
+      }
+    }
+
+    // Aplicar lógica de separación de cambiaderos ANTES de la validación final
+    let finalOrigin = origin
+    let finalDestination = destination
+    let assignedCambiadero = ""
+    let cambiaderoReason = "No aplica separación"
+
+    // Solo si involucra el cambiadero Change House (que debe ser separado), aplicar separación por horario
+    const involvesChangeHouse = 
+      destination === "Cambiadero Change House" || 
+      origin === "Cambiadero Change House"
+
+    if (involvesChangeHouse && departureTime) {
+      const cambiaderoResult = determineCambiadero(origin, destination, departureTime)
+      if (cambiaderoResult.isValid && cambiaderoResult.cambiadero) {
+        // Reemplazar el cambiadero genérico con el específico
+        if (origin === "Cambiadero Change House") {
+          finalOrigin = cambiaderoResult.cambiadero
+        } else if (destination === "Cambiadero Change House") {
+          finalDestination = cambiaderoResult.cambiadero
+        }
+        assignedCambiadero = cambiaderoResult.cambiadero
+        cambiaderoReason = cambiaderoResult.reason
+      } else {
+        // Si no se puede clasificar por horario, mantener genérico pero marcar como no asignado
+        cambiaderoReason = cambiaderoResult.reason
+        assignedCambiadero = destination.startsWith("Cambiadero") ? destination : origin
+      }
+    } else if (involvesChangeHouse) {
+      // Si involucra cambiaderos pero no hay horario
+      cambiaderoReason = "Sin horario disponible para clasificar"
+      assignedCambiadero = destination.startsWith("Cambiadero") ? destination : origin
+    }
+
+    // Verificar si el trayecto es válido usando la función estricta
+    const validation = isValidParqueaderoCambiaderoStrict(finalOrigin, finalDestination)
+    if (validation.isValid) {
+      return {
+        asset,
+        origin: finalOrigin,
+        destination: finalDestination,
+        totalDistance,
+        startRowIndex,
+        endRowIndex,
+        date: endDate,
+        driver: endDriver,
+        intermediateRows,
+        departureTime,
+        assignedCambiadero,
+        cambiaderoReason,
+      }
+    } else {
+      console.log(`Trayecto fragmentado rechazado para ${asset}: ${validation.reason}`)
+      return null
+    }
+  }
+
+  // Nueva función para procesar trayectos completos y fragmentados (MEJORADA CON SEPARACIÓN DE CAMBIADEROS)
   const processTripsAdvanced = (data: string[][]): ProcessedTrip[] => {
     const trips: ProcessedTrip[] = []
     const assetGroups: Record<string, number[]> = {}
+    const rejectedTrips: Array<{ asset: string; reason: string; origin?: string; destination?: string }> = []
+    const acceptedTrips: Array<{ asset: string; route: string; direction: string; type: string; cambiadero?: string }> =
+      []
+    const cambiaderoStats = { changeHouse: 0, fiveX2: 0, unassigned: 0 }
 
     // Agrupar filas por activo manteniendo el orden
     data.forEach((row, index) => {
@@ -373,23 +1293,127 @@ export default function CSVAnalyzer() {
         const departure = normalizeLocation(currentRow[columnMappings.deparfrom])
         const arrival = normalizeLocation(currentRow[columnMappings.arriveat])
         const distance = Number.parseFloat(currentRow[columnMappings.distance]) || 0
+        const departureTime = currentRow[columnMappings.departureTime] || ""
 
         // Caso 1: Trayecto completo en una sola fila
         if (departure && arrival && departure !== arrival) {
-          const isValidRoute = isValidParqueaderoCambiadero(departure, arrival)
+          let realArrival = arrival
+          const realDeparture = departure
 
-          if (isValidRoute) {
+          // Lógica especial para trayectos directos a Annex
+          if (isAnnexOrigin(departure) && isAnnexIntermediateStop(arrival)) {
+            for (let j = i + 1; j < rowIndexes.length; j++) {
+              const nextRow = data[rowIndexes[j]]
+              const nextArrival = normalizeLocation(nextRow[columnMappings.arriveat])
+              if (isAnnexFinalDest(nextArrival)) {
+                realArrival = nextArrival
+                break
+              }
+              if (!isAnnexIntermediateStop(nextArrival)) {
+                break
+              }
+            }
+          }
+          // Lógica especial para trayectos de vuelta desde Annex
+          if (isAnnexFinalDest(departure) && isAnnexIntermediateStop(arrival)) {
+            for (let j = i + 1; j < rowIndexes.length; j++) {
+              const nextRow = data[rowIndexes[j]]
+              const nextArrival = normalizeLocation(nextRow[columnMappings.arriveat])
+              if (isAnnexReturnDest(nextArrival)) {
+                realArrival = nextArrival
+                break
+              }
+              if (!isAnnexIntermediateStop(nextArrival)) {
+                break
+              }
+            }
+          }
+
+          // Aplicar lógica de separación de cambiaderos ANTES de la validación final
+          let finalDeparture = realDeparture
+          let finalArrival = realArrival
+          let assignedCambiadero = ""
+          let cambiaderoReason = "No aplica separación"
+
+          // Solo si involucra el cambiadero Change House (que debe ser separado), aplicar separación por horario
+          const involvesChangeHouse = 
+            realArrival === "Cambiadero Change House" || 
+            realDeparture === "Cambiadero Change House"
+
+          if (involvesChangeHouse && departureTime) {
+            const cambiaderoResult = determineCambiadero(realDeparture, realArrival, departureTime)
+            if (cambiaderoResult.isValid && cambiaderoResult.cambiadero) {
+              // Reemplazar el cambiadero genérico con el específico
+              if (realDeparture === "Cambiadero Change House" || realDeparture === "Cambiadero 5x2") {
+                finalDeparture = cambiaderoResult.cambiadero
+              } else if (realArrival === "Cambiadero Change House" || realArrival === "Cambiadero 5x2") {
+                finalArrival = cambiaderoResult.cambiadero
+              }
+              assignedCambiadero = cambiaderoResult.cambiadero
+              cambiaderoReason = cambiaderoResult.reason
+
+              // Actualizar estadísticas
+              if (cambiaderoResult.cambiadero === "Cambiadero Change House") {
+                cambiaderoStats.changeHouse++
+              } else if (cambiaderoResult.cambiadero === "Cambiadero 5x2") {
+                cambiaderoStats.fiveX2++
+              }
+            } else {
+              // Si no se puede clasificar por horario, dejar el trayecto como inválido o sin asignar
+              cambiaderoStats.unassigned++
+              cambiaderoReason = cambiaderoResult.reason
+              // Mantener el cambiadero genérico pero marcar como no asignado
+              assignedCambiadero = realArrival.startsWith("Cambiadero") ? realArrival : realDeparture
+            }
+          } else if (involvesChangeHouse) {
+            // Si involucra cambiaderos pero no hay horario
+            cambiaderoStats.unassigned++
+            cambiaderoReason = "Sin horario disponible para clasificar"
+            assignedCambiadero = realArrival.startsWith("Cambiadero") ? realArrival : realDeparture
+          }
+
+          // Ahora validar el trayecto con los cambiaderos ya clasificados
+          const validation = isValidParqueaderoCambiaderoStrict(finalDeparture, finalArrival)
+          const route = `${finalDeparture} → ${finalArrival}`
+
+          if (validation.isValid) {
+
             trips.push({
               asset,
-              origin: departure,
-              destination: arrival,
+              origin: finalDeparture,
+              destination: finalArrival,
               totalDistance: distance,
               startRowIndex: currentRowIndex,
               endRowIndex: currentRowIndex,
               date: currentRow[headers.findIndex((h) => h.toLowerCase().includes("date"))] || undefined,
               driver: currentRow[headers.findIndex((h) => h.toLowerCase().includes("driver"))] || undefined,
               intermediateRows: [],
+              departureTime,
+              assignedCambiadero,
+              cambiaderoReason,
             })
+
+            acceptedTrips.push({
+              asset,
+              route: `${finalDeparture} → ${finalArrival}`,
+              direction: validation.direction,
+              type: "Completo",
+              cambiadero: assignedCambiadero || undefined,
+            })
+
+            console.log(
+              `✅ Trayecto completo aceptado para ${asset}: ${finalDeparture} → ${finalArrival} (${validation.direction})${assignedCambiadero ? ` - Asignado a: ${assignedCambiadero}` : ""}`,
+            )
+          } else {
+            rejectedTrips.push({
+              asset,
+              reason: validation.reason || "Trayecto no válido",
+              origin: realDeparture,
+              destination: realArrival,
+            })
+            console.log(
+              `❌ Trayecto completo rechazado para ${asset}: ${realDeparture} → ${realArrival} - ${validation.reason}`,
+            )
           }
           i++
         }
@@ -398,10 +1422,42 @@ export default function CSVAnalyzer() {
           const fragmentedTrip = processFragmentedTripFromOrigin(data, asset, rowIndexes, i, departure)
           if (fragmentedTrip) {
             trips.push(fragmentedTrip)
+            const route = `${fragmentedTrip.origin} → ${fragmentedTrip.destination}`
+            const validation = isValidParqueaderoCambiaderoStrict(fragmentedTrip.origin, fragmentedTrip.destination)
+
+            // Actualizar estadísticas de cambiaderos
+            if (fragmentedTrip.assignedCambiadero === "Cambiadero Change House") {
+              cambiaderoStats.changeHouse++
+            } else if (fragmentedTrip.assignedCambiadero === "Cambiadero 5x2") {
+              cambiaderoStats.fiveX2++
+            } else if (
+              fragmentedTrip.destination === "Cambiadero Change House" ||
+              fragmentedTrip.destination === "Cambiadero 5x2"
+            ) {
+              cambiaderoStats.unassigned++
+            }
+
+            acceptedTrips.push({
+              asset,
+              route,
+              direction: validation.direction,
+              type: "Fragmentado (desde origen)",
+              cambiadero: fragmentedTrip.assignedCambiadero || undefined,
+            })
+
+            console.log(
+              `✅ Trayecto fragmentado (desde origen) aceptado para ${asset}: ${fragmentedTrip.origin} → ${fragmentedTrip.destination}${fragmentedTrip.assignedCambiadero ? ` - Asignado a: ${fragmentedTrip.assignedCambiadero}` : ""}`,
+            )
             // Avanzar al siguiente segmento no procesado
             i = rowIndexes.findIndex((idx) => idx > fragmentedTrip.endRowIndex)
             if (i === -1) break
           } else {
+            rejectedTrips.push({
+              asset,
+              reason: "Trayecto fragmentado desde origen no válido",
+              origin: departure,
+            })
+            console.log(`❌ Trayecto fragmentado rechazado para ${asset}: origen ${departure}`)
             i++
           }
         }
@@ -410,158 +1466,296 @@ export default function CSVAnalyzer() {
           const fragmentedTrip = processFragmentedTripFromDestination(data, asset, rowIndexes, i, arrival)
           if (fragmentedTrip) {
             trips.push(fragmentedTrip)
+            const route = `${fragmentedTrip.origin} → ${fragmentedTrip.destination}`
+            const validation = isValidParqueaderoCambiaderoStrict(fragmentedTrip.origin, fragmentedTrip.destination)
+
+            // Actualizar estadísticas de cambiaderos
+            if (fragmentedTrip.assignedCambiadero === "Cambiadero Change House") {
+              cambiaderoStats.changeHouse++
+            } else if (fragmentedTrip.assignedCambiadero === "Cambiadero 5x2") {
+              cambiaderoStats.fiveX2++
+            } else if (
+              fragmentedTrip.origin === "Cambiadero Change House" ||
+              fragmentedTrip.origin === "Cambiadero 5x2"
+            ) {
+              cambiaderoStats.unassigned++
+            }
+
+            acceptedTrips.push({
+              asset,
+              route,
+              direction: validation.direction,
+              type: "Fragmentado (desde destino)",
+              cambiadero: fragmentedTrip.assignedCambiadero || undefined,
+            })
+
+            console.log(
+              `✅ Trayecto fragmentado (desde destino) aceptado para ${asset}: ${fragmentedTrip.origin} → ${fragmentedTrip.destination}${fragmentedTrip.assignedCambiadero ? ` - Asignado a: ${fragmentedTrip.assignedCambiadero}` : ""}`,
+            )
             // Avanzar al siguiente segmento no procesado
             i = rowIndexes.findIndex((idx) => idx > fragmentedTrip.endRowIndex)
             if (i === -1) break
           } else {
+            rejectedTrips.push({
+              asset,
+              reason: "Trayecto fragmentado desde destino no válido",
+              destination: arrival,
+            })
+            console.log(`❌ Trayecto fragmentado rechazado para ${asset}: destino ${arrival}`)
             i++
           }
         }
         // Caso 4: Segmento intermedio (ni origen ni destino definidos)
         else {
+          rejectedTrips.push({
+            asset,
+            reason: "Segmento intermedio sin origen ni destino válidos",
+          })
+          console.log(`⚠️ Segmento intermedio ignorado para ${asset}`)
           i++
         }
       }
     })
 
+    // Actualizar el estado de validación para mostrar en UI
+    setValidationResults({
+      acceptedTrips,
+      rejectedTrips: rejectedTrips.map((trip) => ({
+        asset: trip.asset,
+        route:
+          trip.origin && trip.destination
+            ? `${trip.origin} → ${trip.destination}`
+            : trip.origin
+              ? `Origen: ${trip.origin}`
+              : trip.destination
+                ? `Destino: ${trip.destination}`
+                : "Segmento incompleto",
+        reason: trip.reason,
+        type: "Rechazado",
+      })),
+      totalProcessed: acceptedTrips.length + rejectedTrips.length,
+      cambiaderoAssignments: cambiaderoStats,
+    })
+
+    // Mostrar resumen de validación
+    console.log(`=== RESUMEN DE VALIDACIÓN CON SEPARACIÓN DE CAMBIADEROS ===`)
+    console.log(`✅ Trayectos aceptados: ${trips.length}`)
+    console.log(`❌ Trayectos rechazados: ${rejectedTrips.length}`)
+    console.log(`📊 Total procesado: ${acceptedTrips.length + rejectedTrips.length}`)
+    console.log(
+      `📈 Tasa de éxito: ${((trips.length / (acceptedTrips.length + rejectedTrips.length)) * 100).toFixed(2)}%`,
+    )
+    console.log(`🏢 Change House asignados: ${cambiaderoStats.changeHouse}`)
+    console.log(`🔄 5x2 asignados: ${cambiaderoStats.fiveX2}`)
+    console.log(`❓ Sin asignar: ${cambiaderoStats.unassigned}`)
+
+    if (rejectedTrips.length > 0) {
+      console.log(`📋 Razones de rechazo:`)
+      const rejectionReasons = rejectedTrips.reduce(
+        (acc, trip) => {
+          acc[trip.reason] = (acc[trip.reason] || 0) + 1
+          return acc
+        },
+        {} as Record<string, number>,
+      )
+
+      Object.entries(rejectionReasons).forEach(([reason, count]) => {
+        console.log(`  - ${reason}: ${count} casos`)
+      })
+    }
+
     return trips
   }
 
-  // Función auxiliar para procesar trayectos fragmentados que inician con origen
-  const processFragmentedTripFromOrigin = (
-    data: string[][],
-    asset: string,
-    assetRowIndexes: number[],
-    startIndex: number,
-    origin: string,
-  ): ProcessedTrip | null => {
-    let totalDistance = 0
-    let destination = ""
-    let endRowIndex = assetRowIndexes[startIndex]
-    const intermediateRows: number[] = []
-    const startRowIndex = assetRowIndexes[startIndex]
+  // Función mejorada para determinar dirección del viaje con validación estricta
+  const getTripDirectionStrict = (
+    departure: string,
+    arrival: string,
+  ): {
+    direction: "Ida" | "Vuelta" | "Inválido"
+    isValid: boolean
+    reason?: string
+  } => {
+    const validation = isValidParqueaderoCambiaderoStrict(departure, arrival)
+    return {
+      direction: validation.direction,
+      isValid: validation.isValid,
+      reason: validation.reason,
+    }
+  }
 
-    // Obtener datos de la fila inicial
-    const startRow = data[startRowIndex]
-    const startDate = startRow[headers.findIndex((h) => h.toLowerCase().includes("date"))] || undefined
-    const startDriver = startRow[headers.findIndex((h) => h.toLowerCase().includes("driver"))] || undefined
-
-    // Sumar distancia de la fila inicial
-    totalDistance += Number.parseFloat(startRow[columnMappings.distance]) || 0
-
-    // Buscar hacia adelante hasta encontrar el destino
-    for (let i = startIndex + 1; i < assetRowIndexes.length; i++) {
-      const currentRowIndex = assetRowIndexes[i]
-      const currentRow = data[currentRowIndex]
-      const currentArrival = normalizeLocation(currentRow[columnMappings.arriveat])
-      const currentDistance = Number.parseFloat(currentRow[columnMappings.distance]) || 0
-
-      totalDistance += currentDistance
-      intermediateRows.push(currentRowIndex)
-      endRowIndex = currentRowIndex
-
-      // Si encontramos un destino válido, terminar el trayecto
-      if (currentArrival) {
-        destination = currentArrival
-        break
-      }
+  // Función para crear clave unificada de ruta (MEJORADA)
+  const createUnifiedRouteKey = (departure: string, arrival: string): string => {
+    // Primero validar que sea una ruta válida
+    const validation = isValidParqueaderoCambiaderoStrict(departure, arrival)
+    if (!validation.isValid) {
+      return `INVÁLIDO: ${departure} → ${arrival}`
     }
 
-    // Verificar si el trayecto es válido
-    if (destination && isValidParqueaderoCambiadero(origin, destination)) {
-      return {
+    // Extraer nombres base sin "Parqueadero" o "Cambiadero"
+    const depBase = departure.replace(/^(Parqueadero|Cambiadero)\s+/, "")
+    const arrBase = arrival.replace(/^(Parqueadero|Cambiadero)\s+/, "")
+
+    // Ordenar alfabéticamente para unificar rutas bidireccionales
+    const [first, second] = [depBase, arrBase].sort()
+    return `${first} ↔ ${second}`
+  }
+
+  // Define calculateRoutes function (MEJORADA CON VALIDACIÓN ESTRICTA)
+  function calculateRoutes() {
+    const departureIndex = headers.findIndex((h) => h.toLowerCase() === "deparfrom")
+    const arrivalIndex = headers.findIndex((h) => h.toLowerCase() === "arriveat")
+    const distanceIndex = headers.findIndex((h) => h.toLowerCase() === "distance")
+    const assetIndex = headers.findIndex((h) => h.toLowerCase() === "assetextra")
+    const typeIndex = headers.findIndex((h) => h.toLowerCase() === "tipotrayecto")
+
+    if (departureIndex === -1 || arrivalIndex === -1 || distanceIndex === -1) {
+      return []
+    }
+
+    const unifiedRoutes: Record<
+      string,
+      {
+        count: number
+        totalDistance: number
+        assets: Set<string>
+        trips: Array<{
+          asset: string
+          distance: number
+          date?: string
+          type: string
+          originalRows?: string
+          direction: string
+          fullRoute: string
+          cambiadero?: string
+        }>
+        completeTrips: number
+        fragmentedTrips: number
+        outboundTrips: number // Parqueadero → Cambiadero
+        returnTrips: number // Cambiadero → Parqueadero
+        outboundDistance: number
+        returnDistance: number
+        validTrips: number
+        invalidTrips: number
+        changeHouseTrips: number
+        fiveX2Trips: number
+      }
+    > = {}
+
+    let totalValidTrips = 0
+    let totalInvalidTrips = 0
+
+    csvData.forEach((row) => {
+      const departure = row[departureIndex]
+      const arrival = row[arrivalIndex]
+      const asset = assetIndex !== -1 ? row[assetIndex] : "Desconocido"
+      const date = row[headers.findIndex((h) => h.toLowerCase().includes("date"))] || undefined
+      const distance = Number.parseFloat(row[distanceIndex]) || 0
+      const tripType = typeIndex !== -1 ? row[typeIndex] : "Desconocido"
+      const originalRows = row[headers.findIndex((h) => h.toLowerCase().includes("filas"))] || ""
+      const cambiadero = row[headers.findIndex((h) => h.toLowerCase().includes("cambiadero"))] || ""
+
+      // Validación estricta del viaje
+      const validation = getTripDirectionStrict(departure, arrival)
+      const fullRoute = `${departure} → ${arrival}`
+
+      if (!validation.isValid) {
+        totalInvalidTrips++
+        console.log(`Viaje rechazado: ${fullRoute} - ${validation.reason}`)
+        return // Skip invalid trips
+      }
+
+      totalValidTrips++
+      const direction = validation.direction
+      const unifiedKey = createUnifiedRouteKey(departure, arrival)
+
+      if (!unifiedRoutes[unifiedKey]) {
+        unifiedRoutes[unifiedKey] = {
+          count: 0,
+          totalDistance: 0,
+          assets: new Set(),
+          trips: [],
+          completeTrips: 0,
+          fragmentedTrips: 0,
+          outboundTrips: 0,
+          returnTrips: 0,
+          outboundDistance: 0,
+          returnDistance: 0,
+          validTrips: 0,
+          invalidTrips: 0,
+          changeHouseTrips: 0,
+          fiveX2Trips: 0,
+        }
+      }
+
+      const route = unifiedRoutes[unifiedKey]
+
+      // Actualizar contadores generales
+      route.count += 1
+      route.totalDistance += distance
+      route.assets.add(asset)
+      route.validTrips += 1
+      route.trips.push({
         asset,
-        origin,
-        destination,
-        totalDistance,
-        startRowIndex,
-        endRowIndex,
-        date: startDate,
-        driver: startDriver,
-        intermediateRows,
+        distance,
+        date,
+        type: tripType,
+        originalRows,
+        direction,
+        fullRoute,
+        cambiadero,
+      })
+
+      // Actualizar contadores por tipo de trayecto
+      if (tripType === "Completo") {
+        route.completeTrips += 1
+      } else if (tripType === "Fragmentado") {
+        route.fragmentedTrips += 1
       }
-    }
 
-    return null
-  }
-
-  // Función auxiliar para procesar trayectos fragmentados que inician con destino
-  const processFragmentedTripFromDestination = (
-    data: string[][],
-    asset: string,
-    assetRowIndexes: number[],
-    startIndex: number,
-    destination: string,
-  ): ProcessedTrip | null => {
-    let totalDistance = 0
-    let origin = ""
-    let startRowIndex = assetRowIndexes[startIndex]
-    const intermediateRows: number[] = []
-    const endRowIndex = assetRowIndexes[startIndex]
-
-    // Obtener datos de la fila inicial
-    const endRow = data[endRowIndex]
-    const endDate = endRow[headers.findIndex((h) => h.toLowerCase().includes("date"))] || undefined
-    const endDriver = endRow[headers.findIndex((h) => h.toLowerCase().includes("driver"))] || undefined
-
-    // Sumar distancia de la fila inicial
-    totalDistance += Number.parseFloat(endRow[columnMappings.distance]) || 0
-
-    // Buscar hacia atrás hasta encontrar el origen
-    for (let i = startIndex - 1; i >= 0; i--) {
-      const currentRowIndex = assetRowIndexes[i]
-      const currentRow = data[currentRowIndex]
-      const currentDeparture = normalizeLocation(currentRow[columnMappings.deparfrom])
-      const currentDistance = Number.parseFloat(currentRow[columnMappings.distance]) || 0
-
-      totalDistance += currentDistance
-      intermediateRows.unshift(currentRowIndex) // Agregar al inicio para mantener orden
-      startRowIndex = currentRowIndex
-
-      // Si encontramos un origen válido, terminar el trayecto
-      if (currentDeparture) {
-        origin = currentDeparture
-        break
+      // Actualizar contadores por cambiadero
+      if (cambiadero === "Cambiadero Change House") {
+        route.changeHouseTrips += 1
+      } else if (cambiadero === "Cambiadero 5x2") {
+        route.fiveX2Trips += 1
       }
-    }
 
-    // Verificar si el trayecto es válido
-    if (origin && isValidParqueaderoCambiadero(origin, destination)) {
-      return {
-        asset,
-        origin,
-        destination,
-        totalDistance,
-        startRowIndex,
-        endRowIndex,
-        date: endDate,
-        driver: endDriver,
-        intermediateRows,
+      // Actualizar contadores por dirección (validación estricta garantiza que direction sea "Ida" o "Vuelta")
+      if (direction === "Ida") {
+        route.outboundTrips += 1
+        route.outboundDistance += distance
+      } else if (direction === "Vuelta") {
+        route.returnTrips += 1
+        route.returnDistance += distance
       }
-    }
-
-    return null
-  }
-
-  // Modificar la función isValidParqueaderoCambiadero para ser más explícita
-  const isValidParqueaderoCambiadero = (origin: string, destination: string): boolean => {
-    const isOriginParqueadero = origin.startsWith("Parqueadero")
-    const isOriginCambiadero = origin.startsWith("Cambiadero")
-    const isDestinationParqueadero = destination.startsWith("Parqueadero")
-    const isDestinationCambiadero = destination.startsWith("Cambiadero")
-
-    // Solo permitir rutas Parqueadero → Cambiadero o Cambiadero → Parqueadero
-    return (isOriginParqueadero && isDestinationCambiadero) || (isOriginCambiadero && isDestinationParqueadero)
-  }
-
-  // Añadir una nueva función para generar el resumen consolidado
-
-  // Función para formatear números en formato colombiano
-  const formatColombianNumber = (number: number, decimals = 2): string => {
-    return number.toLocaleString("es-CO", {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
     })
+
+    console.log(`=== RESUMEN DE ANÁLISIS DE RUTAS ===`)
+    console.log(`Total viajes válidos procesados: ${totalValidTrips}`)
+    console.log(`Total viajes inválidos rechazados: ${totalInvalidTrips}`)
+    console.log(`Rutas únicas válidas encontradas: ${Object.keys(unifiedRoutes).length}`)
+
+    // Convertir a array y ordenar por frecuencia
+    return Object.entries(unifiedRoutes)
+      .filter(([route]) => !route.startsWith("INVÁLIDO")) // Filtrar rutas inválidas
+      .map(([route, data]) => ({
+        route,
+        count: data.count,
+        totalDistance: data.totalDistance,
+        averageDistance: data.totalDistance / data.count,
+        uniqueAssets: data.assets.size,
+        assets: Array.from(data.assets),
+        trips: data.trips,
+        completeTrips: data.completeTrips,
+        fragmentedTrips: data.fragmentedTrips,
+        outboundTrips: data.outboundTrips,
+        returnTrips: data.returnTrips,
+        outboundDistance: data.outboundDistance,
+        returnDistance: data.returnDistance,
+        changeHouseTrips: data.changeHouseTrips,
+        fiveX2Trips: data.fiveX2Trips,
+      }))
+      .sort((a, b) => b.count - a.count)
   }
 
   const generateConsolidatedSummaryData = () => {
@@ -569,34 +1763,76 @@ export default function CSVAnalyzer() {
     const arrivalIndex = headers.findIndex((h) => h.toLowerCase() === "arriveat")
     const distanceIndex = headers.findIndex((h) => h.toLowerCase() === "distance")
     const typeIndex = headers.findIndex((h) => h.toLowerCase() === "tipotrayecto")
+    const cambiaderoIndex = headers.findIndex((h) => h.toLowerCase().includes("cambiadero"))
 
     if (departureIndex === -1 || arrivalIndex === -1 || distanceIndex === -1) {
       return {
-        parqueaderoToCambiadero: { trips: 0, distance: 0, completeTrips: 0, fragmentedTrips: 0 },
-        cambiaderoToParqueadero: { trips: 0, distance: 0, completeTrips: 0, fragmentedTrips: 0 },
-        total: { trips: 0, distance: 0, completeTrips: 0, fragmentedTrips: 0 },
+        parqueaderoToCambiadero: {
+          trips: 0,
+          distance: 0,
+          completeTrips: 0,
+          fragmentedTrips: 0,
+          changeHouse: 0,
+          fiveX2: 0,
+        },
+        cambiaderoToParqueadero: {
+          trips: 0,
+          distance: 0,
+          completeTrips: 0,
+          fragmentedTrips: 0,
+          changeHouse: 0,
+          fiveX2: 0,
+        },
+        total: { trips: 0, distance: 0, completeTrips: 0, fragmentedTrips: 0, changeHouse: 0, fiveX2: 0 },
+        invalidTrips: 0,
+        validationRate: 0,
       }
     }
 
     // Inicializar contadores
     const summary = {
-      parqueaderoToCambiadero: { trips: 0, distance: 0, completeTrips: 0, fragmentedTrips: 0 },
-      cambiaderoToParqueadero: { trips: 0, distance: 0, completeTrips: 0, fragmentedTrips: 0 },
-      total: { trips: 0, distance: 0, completeTrips: 0, fragmentedTrips: 0 },
+      parqueaderoToCambiadero: {
+        trips: 0,
+        distance: 0,
+        completeTrips: 0,
+        fragmentedTrips: 0,
+        changeHouse: 0,
+        fiveX2: 0,
+      },
+      cambiaderoToParqueadero: {
+        trips: 0,
+        distance: 0,
+        completeTrips: 0,
+        fragmentedTrips: 0,
+        changeHouse: 0,
+        fiveX2: 0,
+      },
+      total: { trips: 0, distance: 0, completeTrips: 0, fragmentedTrips: 0, changeHouse: 0, fiveX2: 0 },
+      invalidTrips: 0,
+      validationRate: 0,
     }
 
-    // Procesar cada fila
+    let totalProcessed = 0
+
+    // Procesar cada fila con validación estricta
     csvData.forEach((row) => {
+      totalProcessed++
       const departure = row[departureIndex]
       const arrival = row[arrivalIndex]
       const distance = Number.parseFloat(row[distanceIndex]) || 0
       const tripType = typeIndex !== -1 ? row[typeIndex] : "Desconocido"
+      const cambiadero = cambiaderoIndex !== -1 ? row[cambiaderoIndex] : ""
 
-      const isOriginParqueadero = departure.startsWith("Parqueadero")
-      const isDestinationCambiadero = arrival.startsWith("Cambiadero")
+      // Aplicar validación estricta
+      const validation = getTripDirectionStrict(departure, arrival)
 
-      // Determinar dirección del viaje
-      if (isOriginParqueadero && isDestinationCambiadero) {
+      if (!validation.isValid) {
+        summary.invalidTrips++
+        return // Skip invalid trips
+      }
+
+      // Clasificar según dirección validada estrictamente
+      if (validation.direction === "Ida") {
         // Parqueadero → Cambiadero
         summary.parqueaderoToCambiadero.trips += 1
         summary.parqueaderoToCambiadero.distance += distance
@@ -605,7 +1841,14 @@ export default function CSVAnalyzer() {
         } else if (tripType === "Fragmentado") {
           summary.parqueaderoToCambiadero.fragmentedTrips += 1
         }
-      } else {
+
+        // Contar por cambiadero
+        if (cambiadero === "Cambiadero Change House" || arrival === "Cambiadero Change House") {
+          summary.parqueaderoToCambiadero.changeHouse += 1
+        } else if (cambiadero === "Cambiadero 5x2" || arrival === "Cambiadero 5x2") {
+          summary.parqueaderoToCambiadero.fiveX2 += 1
+        }
+      } else if (validation.direction === "Vuelta") {
         // Cambiadero → Parqueadero
         summary.cambiaderoToParqueadero.trips += 1
         summary.cambiaderoToParqueadero.distance += distance
@@ -613,6 +1856,13 @@ export default function CSVAnalyzer() {
           summary.cambiaderoToParqueadero.completeTrips += 1
         } else if (tripType === "Fragmentado") {
           summary.cambiaderoToParqueadero.fragmentedTrips += 1
+        }
+
+        // Contar por cambiadero
+        if (cambiadero === "Cambiadero Change House" || departure === "Cambiadero Change House") {
+          summary.cambiaderoToParqueadero.changeHouse += 1
+        } else if (cambiadero === "Cambiadero 5x2" || departure === "Cambiadero 5x2") {
+          summary.cambiaderoToParqueadero.fiveX2 += 1
         }
       }
 
@@ -624,7 +1874,21 @@ export default function CSVAnalyzer() {
       } else if (tripType === "Fragmentado") {
         summary.total.fragmentedTrips += 1
       }
+
+      // Totales por cambiadero
+      if (
+        cambiadero === "Cambiadero Change House" ||
+        departure === "Cambiadero Change House" ||
+        arrival === "Cambiadero Change House"
+      ) {
+        summary.total.changeHouse += 1
+      } else if (cambiadero === "Cambiadero 5x2" || departure === "Cambiadero 5x2" || arrival === "Cambiadero 5x2") {
+        summary.total.fiveX2 += 1
+      }
     })
+
+    // Calcular tasa de validación
+    summary.validationRate = totalProcessed > 0 ? (summary.total.trips / totalProcessed) * 100 : 0
 
     return summary
   }
@@ -651,8 +1915,11 @@ export default function CSVAnalyzer() {
         trip.totalDistance.toString(),
         trip.date || "",
         trip.driver || "",
+        trip.departureTime || "",
         `${trip.startRowIndex + 1}-${trip.endRowIndex + 1}`, // Referencia a filas originales
         trip.intermediateRows.length > 0 ? "Fragmentado" : "Completo",
+        trip.assignedCambiadero || trip.destination,
+        trip.cambiaderoReason || "N/A",
       ])
 
       // Crear nuevos encabezados incluyendo información de procesamiento
@@ -663,8 +1930,11 @@ export default function CSVAnalyzer() {
         "Distance",
         "Date",
         "Driver",
+        "DepartureTime",
         "FilasOriginales",
         "TipoTrayecto",
+        "CambiaderoAsignado",
+        "RazonAsignacion",
       ]
 
       setHeaders(newHeaders)
@@ -678,6 +1948,116 @@ export default function CSVAnalyzer() {
         setProcessProgress(100)
         setCsvData(transformed)
         setTransformationComplete(true)
+        
+        // Generar datasets separados automáticamente después de la transformación
+        setTimeout(() => {
+          console.log("🔄 Generando datasets separados automáticamente...")
+          // Usar los datos transformados para generar los datasets
+          const generateDatasets = () => {
+            const changeHouseData: string[][] = []
+            const fiveX2Data: string[][] = []
+            const unassignedData: string[][] = []
+            
+            const stats = {
+              totalProcessed: 0,
+              changeHouseCount: 0,
+              fiveX2Count: 0,
+              unassignedCount: 0,
+              successRate: 0,
+              errorsByCategory: {} as Record<string, number>,
+              distributionByPopulation: {} as Record<string, { changeHouse: number; fiveX2: number; unassigned: number }>,
+            }
+            
+            const detailedLog: Array<{
+              asset: string
+              route: string
+              departureTime: string
+              assignedTo: string
+              reason: string
+              category: string
+            }> = []
+
+            // Usar los datos transformados
+            transformed.forEach((row) => {
+              const cambiaderoAsignado = row[newHeaders.findIndex(h => h === "CambiaderoAsignado")]
+              const razonAsignacion = row[newHeaders.findIndex(h => h === "RazonAsignacion")]
+              const asset = row[0]
+              const deparfrom = row[1]
+              const arriveat = row[2]
+              const departureTime = row[6]
+              
+              stats.totalProcessed++
+              
+              // Extraer población para distribución
+              const population = deparfrom.startsWith("Parqueadero") ? deparfrom : arriveat.startsWith("Parqueadero") ? arriveat : "Desconocido"
+              if (!stats.distributionByPopulation[population]) {
+                stats.distributionByPopulation[population] = { changeHouse: 0, fiveX2: 0, unassigned: 0 }
+              }
+              
+              // Clasificar por cambiadero asignado
+              if (cambiaderoAsignado === "Cambiadero Change House") {
+                changeHouseData.push(row)
+                stats.changeHouseCount++
+                stats.distributionByPopulation[population].changeHouse++
+                detailedLog.push({
+                  asset,
+                  route: `${deparfrom} → ${arriveat}`,
+                  departureTime,
+                  assignedTo: "Change House",
+                  reason: razonAsignacion,
+                  category: "change_house_asignado"
+                })
+              } else if (cambiaderoAsignado === "Cambiadero 5x2") {
+                fiveX2Data.push(row)
+                stats.fiveX2Count++
+                stats.distributionByPopulation[population].fiveX2++
+                detailedLog.push({
+                  asset,
+                  route: `${deparfrom} → ${arriveat}`,
+                  departureTime,
+                  assignedTo: "5x2",
+                  reason: razonAsignacion,
+                  category: "fiveX2_asignado"
+                })
+              } else {
+                unassignedData.push(row)
+                stats.unassignedCount++
+                stats.distributionByPopulation[population].unassigned++
+                detailedLog.push({
+                  asset,
+                  route: `${deparfrom} → ${arriveat}`,
+                  departureTime,
+                  assignedTo: "Sin Asignar",
+                  reason: razonAsignacion,
+                  category: "sin_asignar"
+                })
+              }
+            })
+            
+            // Calcular tasa de éxito
+            const assignedCount = stats.changeHouseCount + stats.fiveX2Count
+            stats.successRate = stats.totalProcessed > 0 ? (assignedCount / stats.totalProcessed) * 100 : 0
+            
+            // Actualizar estado
+            setClassificationResults({
+              changeHouseDataset: changeHouseData,
+              fiveX2Dataset: fiveX2Data,
+              unassignedDataset: unassignedData,
+              statistics: stats,
+              detailedLog,
+            })
+            
+            console.log("✅ Datasets generados automáticamente:")
+            console.log(`📊 Total procesado: ${stats.totalProcessed}`)
+            console.log(`🏢 Change House: ${stats.changeHouseCount}`)
+            console.log(`🔄 5x2: ${stats.fiveX2Count}`)
+            console.log(`❓ Sin asignar: ${stats.unassignedCount}`)
+            console.log(`📈 Tasa de éxito: ${stats.successRate.toFixed(2)}%`)
+          }
+          
+          generateDatasets()
+        }, 100)
+        
         setActiveTab("data")
         setIsProcessing(false)
       }, 500)
@@ -689,6 +2069,9 @@ export default function CSVAnalyzer() {
     let totalDistance = 0
     let completeTrips = 0
     let fragmentedTrips = 0
+    let changeHouseTrips = 0
+    let fiveX2Trips = 0
+    let unassignedTrips = 0
     const origins = new Set<string>()
     const destinations = new Set<string>()
     const routes = new Set<string>()
@@ -706,6 +2089,20 @@ export default function CSVAnalyzer() {
       } else {
         completeTrips++
       }
+
+      // Contar asignaciones de cambiaderos
+      if (trip.assignedCambiadero === "Cambiadero Change House") {
+        changeHouseTrips++
+      } else if (trip.assignedCambiadero === "Cambiadero 5x2") {
+        fiveX2Trips++
+      } else if (
+        trip.destination === "Cambiadero Change House" ||
+        trip.destination === "Cambiadero 5x2" ||
+        trip.origin === "Cambiadero Change House" ||
+        trip.origin === "Cambiadero 5x2"
+      ) {
+        unassignedTrips++
+      }
     })
 
     const stats = {
@@ -720,6 +2117,9 @@ export default function CSVAnalyzer() {
       uniqueAssets: assets.size,
       completeTrips,
       fragmentedTrips,
+      changeHouseTrips,
+      fiveX2Trips,
+      unassignedTrips,
     }
 
     console.log("Estadísticas avanzadas:", stats)
@@ -783,6 +2183,20 @@ export default function CSVAnalyzer() {
           results = csvData.filter((row) => row[typeIndex] === "Completo")
         }
       }
+      // Show Change House trips
+      else if (lowerQuery.includes("change house")) {
+        const cambiaderoIndex = headers.findIndex((h) => h.toLowerCase().includes("cambiadero"))
+        if (cambiaderoIndex !== -1) {
+          results = csvData.filter((row) => row[cambiaderoIndex] === "Cambiadero Change House")
+        }
+      }
+      // Show 5x2 trips
+      else if (lowerQuery.includes("5x2")) {
+        const cambiaderoIndex = headers.findIndex((h) => h.toLowerCase().includes("cambiadero"))
+        if (cambiaderoIndex !== -1) {
+          results = csvData.filter((row) => row[cambiaderoIndex] === "Cambiadero 5x2")
+        }
+      }
       // Default to showing first 10 rows
       else {
         results = csvData.slice(0, 10)
@@ -811,45 +2225,121 @@ export default function CSVAnalyzer() {
     return Array.from(locations).sort()
   }
 
-  // Crear datos para el mapa de rutas
-  // const getRouteMapData = () => {
-  //   const departureIndex = headers.findIndex((h) => h.toLowerCase() === "deparfrom")
-  //   const arrivalIndex = headers.findIndex((h) => h.toLowerCase() === "arriveat")
-  //   const distanceIndex = headers.findIndex((h) => h.toLowerCase() === "distance")
-
-  //   if (departureIndex === -1 || arrivalIndex === -1 || distanceIndex === -1) return []
-
-  //   const routeMap: Record<string, { count: number; totalDistance: number }> = {}
-
-  //   csvData.forEach((row) => {
-  //     const departure = row[departureIndex]
-  //     const arrival = row[arrivalIndex]
-  //     const routeKey = `${departure}-${arrival}`
-  //     const distance = Number.parseFloat(row[distanceIndex]) || 0
-
-  //     if (!routeMap[routeKey]) {
-  //       routeMap[routeKey] = { count: 0, totalDistance: 0 }
-  //     }
-
-  //     routeMap[routeKey].count += 1
-  //     routeMap[routeKey].totalDistance += distance
-  //   })
-
-  //   return Object.entries(routeMap).map(([key, data]) => {
-  //     const [departure, arrival] = key.split("-")
-  //     return {
-  //       departure,
-  //       arrival,
-  //       count: data.count,
-  //       totalDistance: data.totalDistance,
-  //     }
-  //   })
-  // }
-
   // Memoizar los cálculos costosos para mejorar el rendimiento
   const locations = useMemo(() => getUniqueLocations(), [csvData, headers])
-  // const routeMapData = useMemo(() => getRouteMapData(), [csvData, headers])
   const routes = useMemo(() => calculateRoutes(), [csvData, headers])
+
+  // Función para generar datasets separados según especificaciones
+  const generateSeparatedDatasets = () => {
+    console.log("🚀 Iniciando generación de datasets separados...")
+    
+    const changeHouseData: string[][] = []
+    const fiveX2Data: string[][] = []
+    const unassignedData: string[][] = []
+    
+    const statistics = {
+      totalProcessed: 0,
+      changeHouseCount: 0,
+      fiveX2Count: 0,
+      unassignedCount: 0,
+      successRate: 0,
+      errorsByCategory: {} as Record<string, number>,
+      distributionByPopulation: {} as Record<string, { changeHouse: number; fiveX2: number; unassigned: number }>,
+    }
+    
+    const detailedLog: Array<{
+      asset: string
+      route: string
+      departureTime: string
+      assignedTo: string
+      reason: string
+      category: string
+    }> = []
+
+    // Procesar cada fila de datos procesados
+    csvData.forEach((row) => {
+      const deparfrom = row[headers.findIndex((h) => h.toLowerCase() === "deparfrom")]
+      const arriveat = row[headers.findIndex((h) => h.toLowerCase() === "arriveat")]
+      const asset = row[headers.findIndex((h) => h.toLowerCase() === "assetextra")]
+      const departureTime = row[headers.findIndex((h) => h.toLowerCase() === "departuretime")]
+      
+      statistics.totalProcessed++
+      
+      // Aplicar lógica de separación
+      const classificationResult = determineCambiadero(deparfrom, arriveat, departureTime)
+      
+      // Contar errores por categoría
+      if (!statistics.errorsByCategory[classificationResult.category]) {
+        statistics.errorsByCategory[classificationResult.category] = 0
+      }
+      statistics.errorsByCategory[classificationResult.category]++
+      
+      // Extraer población para distribución
+      const population = deparfrom.startsWith("Parqueadero") ? deparfrom : arriveat.startsWith("Parqueadero") ? arriveat : "Desconocido"
+      if (!statistics.distributionByPopulation[population]) {
+        statistics.distributionByPopulation[population] = { changeHouse: 0, fiveX2: 0, unassigned: 0 }
+      }
+      
+      // Clasificar en dataset correspondiente
+      if (classificationResult.isValid && classificationResult.cambiadero === "Cambiadero Change House") {
+        changeHouseData.push(row)
+        statistics.changeHouseCount++
+        statistics.distributionByPopulation[population].changeHouse++
+        detailedLog.push({
+          asset,
+          route: `${deparfrom} → ${arriveat}`,
+          departureTime,
+          assignedTo: "Change House",
+          reason: classificationResult.reason,
+          category: classificationResult.category
+        })
+      } else if (classificationResult.isValid && classificationResult.cambiadero === "Cambiadero 5x2") {
+        fiveX2Data.push(row)
+        statistics.fiveX2Count++
+        statistics.distributionByPopulation[population].fiveX2++
+        detailedLog.push({
+          asset,
+          route: `${deparfrom} → ${arriveat}`,
+          departureTime,
+          assignedTo: "5x2",
+          reason: classificationResult.reason,
+          category: classificationResult.category
+        })
+      } else {
+        unassignedData.push(row)
+        statistics.unassignedCount++
+        statistics.distributionByPopulation[population].unassigned++
+        detailedLog.push({
+          asset,
+          route: `${deparfrom} → ${arriveat}`,
+          departureTime,
+          assignedTo: "Sin Asignar",
+          reason: classificationResult.reason,
+          category: classificationResult.category
+        })
+      }
+    })
+    
+    // Calcular tasa de éxito
+    const assignedCount = statistics.changeHouseCount + statistics.fiveX2Count
+    statistics.successRate = statistics.totalProcessed > 0 ? (assignedCount / statistics.totalProcessed) * 100 : 0
+    
+    // Actualizar estado
+    setClassificationResults({
+      changeHouseDataset: changeHouseData,
+      fiveX2Dataset: fiveX2Data,
+      unassignedDataset: unassignedData,
+      statistics,
+      detailedLog,
+    })
+    
+    console.log("✅ Datasets generados:")
+    console.log(`📊 Total procesado: ${statistics.totalProcessed}`)
+    console.log(`🏢 Change House: ${statistics.changeHouseCount}`)
+    console.log(`🔄 5x2: ${statistics.fiveX2Count}`)
+    console.log(`❓ Sin asignar: ${statistics.unassignedCount}`)
+    console.log(`📈 Tasa de éxito: ${statistics.successRate.toFixed(2)}%`)
+  }
 
   // Función para exportar datos a CSV
   const exportToCSV = () => {
@@ -869,6 +2359,91 @@ export default function CSVAnalyzer() {
     document.body.removeChild(link)
   }
 
+  // Función para exportar datasets separados
+  const exportSeparatedDatasets = () => {
+    if (classificationResults.changeHouseDataset.length === 0 && 
+        classificationResults.fiveX2Dataset.length === 0 && 
+        classificationResults.unassignedDataset.length === 0) {
+      console.log("No hay datasets para exportar")
+      return
+    }
+
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, "-")
+    
+    // Dataset Change House
+    if (classificationResults.changeHouseDataset.length > 0) {
+      const csvContent = [headers.join(","), ...classificationResults.changeHouseDataset.map((row) => row.join(","))].join("\n")
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.setAttribute("href", url)
+      link.setAttribute("download", `Dataset_Change_House_${timestamp}.csv`)
+      link.style.visibility = "hidden"
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
+    
+    // Dataset 5x2
+    if (classificationResults.fiveX2Dataset.length > 0) {
+      const csvContent = [headers.join(","), ...classificationResults.fiveX2Dataset.map((row) => row.join(","))].join("\n")
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.setAttribute("href", url)
+      link.setAttribute("download", `Dataset_5x2_${timestamp}.csv`)
+      link.style.visibility = "hidden"
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
+    
+    // Dataset Sin Asignar
+    if (classificationResults.unassignedDataset.length > 0) {
+      const csvContent = [headers.join(","), ...classificationResults.unassignedDataset.map((row) => row.join(","))].join("\n")
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.setAttribute("href", url)
+      link.setAttribute("download", `Dataset_Sin_Asignar_${timestamp}.csv`)
+      link.style.visibility = "hidden"
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
+    
+    // Resumen estadístico
+    const summaryData = [
+      ["Métrica", "Valor"],
+      ["Total Procesado", classificationResults.statistics.totalProcessed.toString()],
+      ["Change House", classificationResults.statistics.changeHouseCount.toString()],
+      ["5x2", classificationResults.statistics.fiveX2Count.toString()],
+      ["Sin Asignar", classificationResults.statistics.unassignedCount.toString()],
+      ["Tasa de Éxito (%)", classificationResults.statistics.successRate.toFixed(2)],
+      ["", ""],
+      ["Errores por Categoría", ""],
+      ...Object.entries(classificationResults.statistics.errorsByCategory).map(([cat, count]) => [cat, count.toString()]),
+      ["", ""],
+      ["Distribución por Población", ""],
+      ...Object.entries(classificationResults.statistics.distributionByPopulation).map(([pop, dist]) => 
+        [pop, `CH:${dist.changeHouse} | 5x2:${dist.fiveX2} | SA:${dist.unassigned}`]
+      ),
+    ]
+    
+    const summaryContent = summaryData.map(row => row.join(",")).join("\n")
+    const blob = new Blob([summaryContent], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.setAttribute("href", url)
+    link.setAttribute("download", `Resumen_Clasificacion_${timestamp}.csv`)
+    link.style.visibility = "hidden"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    
+    console.log("✅ Datasets exportados exitosamente")
+  }
+
   // Función para filtrar las rutas según el término de búsqueda
   const filteredRoutes = useMemo(() => {
     if (!searchTerm) return routes
@@ -885,6 +2460,7 @@ export default function CSVAnalyzer() {
     const distanceIndex = headers.findIndex((h) => h.toLowerCase() === "distance")
     const assetIndex = headers.findIndex((h) => h.toLowerCase() === "assetextra")
     const typeIndex = headers.findIndex((h) => h.toLowerCase() === "tipotrayecto")
+    const cambiaderoIndex = headers.findIndex((h) => h.toLowerCase().includes("cambiadero"))
 
     if (distanceIndex === -1 || assetIndex === -1) return []
 
@@ -897,6 +2473,8 @@ export default function CSVAnalyzer() {
         uniqueRoutes: Set<string>
         completeTrips: number
         fragmentedTrips: number
+        changeHouseTrips: number
+        fiveX2Trips: number
       }
     > = {}
 
@@ -908,6 +2486,7 @@ export default function CSVAnalyzer() {
       const distance = Number.parseFloat(row[distanceIndex]) || 0
       const route = departureIndex !== -1 && arrivalIndex !== -1 ? `${row[departureIndex]}-${row[arrivalIndex]}` : ""
       const tripType = typeIndex !== -1 ? row[typeIndex] : "Desconocido"
+      const cambiadero = cambiaderoIndex !== -1 ? row[cambiaderoIndex] : ""
 
       if (!assetStats[asset]) {
         assetStats[asset] = {
@@ -917,6 +2496,8 @@ export default function CSVAnalyzer() {
           uniqueRoutes: new Set(),
           completeTrips: 0,
           fragmentedTrips: 0,
+          changeHouseTrips: 0,
+          fiveX2Trips: 0,
         }
       }
 
@@ -928,6 +2509,12 @@ export default function CSVAnalyzer() {
         assetStats[asset].completeTrips += 1
       } else if (tripType === "Fragmentado") {
         assetStats[asset].fragmentedTrips += 1
+      }
+
+      if (cambiadero === "Cambiadero Change House") {
+        assetStats[asset].changeHouseTrips += 1
+      } else if (cambiadero === "Cambiadero 5x2") {
+        assetStats[asset].fiveX2Trips += 1
       }
     })
 
@@ -941,6 +2528,8 @@ export default function CSVAnalyzer() {
         uniqueRouteCount: stats.uniqueRoutes.size,
         completeTrips: stats.completeTrips,
         fragmentedTrips: stats.fragmentedTrips,
+        changeHouseTrips: stats.changeHouseTrips,
+        fiveX2Trips: stats.fiveX2Trips,
       }))
       .sort((a, b) => b.totalDistance - a.totalDistance)
   }
@@ -957,7 +2546,9 @@ export default function CSVAnalyzer() {
           transition={{ duration: 0.5 }}
           className="flex flex-col"
         >
-          <h1 className="text-3xl font-bold text-center sm:text-left">CerrejonTrackApp - Análisis Avanzado de Trayectos Intermunicipales</h1>
+          <h1 className="text-3xl font-bold text-center sm:text-left">
+            CerrejonTrackApp 
+          </h1>
           {fileName && !isPreview && (
             <p className="text-sm text-muted-foreground mt-1">
               Archivo actual: <span className="font-medium">{fileName}</span>
@@ -965,7 +2556,7 @@ export default function CSVAnalyzer() {
           )}
           {isPreview && (
             <p className="text-sm text-muted-foreground mt-1">
-              Modo demostración con datos de ejemplo (incluye trayectos fragmentados)
+              Modo demostración con separación automática Change House vs 5x2
             </p>
           )}
         </motion.div>
@@ -976,28 +2567,48 @@ export default function CSVAnalyzer() {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-9" onClick={exportToCSV}>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-9 bg-transparent" 
+                      onClick={() => setActiveTab("classification")}
+                      disabled={!transformationComplete}
+                    >
+                      <Clock className="mr-2 h-4 w-4" />
+                      Ver Clasificación
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Ver sistema de separación de cambiaderos por horarios</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-9 bg-transparent" onClick={exportToCSV}>
                       <Download className="mr-2 h-4 w-4" />
                       Exportar CSV
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Exportar datos procesados a CSV</p>
+                    <p>Exportar datos procesados con separación de cambiaderos</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
 
               <Sheet>
                 <SheetTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-9">
+                  <Button variant="outline" size="sm" className="h-9 bg-transparent">
                     <Info className="mr-2 h-4 w-4" />
                     Estadísticas
                   </Button>
                 </SheetTrigger>
                 <SheetContent className="sm:max-w-md">
                   <SheetHeader>
-                    <SheetTitle>Estadísticas del Análisis Avanzado</SheetTitle>
-                    <SheetDescription>Resumen estadístico incluyendo trayectos fragmentados</SheetDescription>
+                    <SheetTitle>Estadísticas con Separación de Cambiaderos</SheetTitle>
+                    <SheetDescription>Resumen incluyendo asignación automática por horarios</SheetDescription>
                   </SheetHeader>
                   <div className="py-4">
                     {statistics ? (
@@ -1013,6 +2624,21 @@ export default function CSVAnalyzer() {
                             value={statistics.validRows}
                             icon={<Check className="h-4 w-4" />}
                             percentage={(statistics.validRows / statistics.totalRows) * 100}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <StatsCard
+                            title="Change House"
+                            value={statistics.changeHouseTrips}
+                            icon={<Clock className="h-4 w-4" />}
+                            description="Asignados por horario"
+                          />
+                          <StatsCard
+                            title="5x2"
+                            value={statistics.fiveX2Trips}
+                            icon={<Clock className="h-4 w-4" />}
+                            description="Asignados por horario"
                           />
                         </div>
 
@@ -1051,18 +2677,18 @@ export default function CSVAnalyzer() {
                             icon={<FileSpreadsheet className="h-4 w-4" />}
                           />
                           <StatsCard
-                            title="Rutas Únicas"
-                            value={statistics.uniqueRoutes}
-                            icon={<ArrowRight className="h-4 w-4" />}
+                            title="Sin Asignar"
+                            value={statistics.unassignedTrips}
+                            icon={<AlertTriangle className="h-4 w-4" />}
                           />
                         </div>
 
                         <Alert>
-                          <Info className="h-4 w-4" />
-                          <AlertTitle>Procesamiento Avanzado</AlertTitle>
+                          <Clock className="h-4 w-4" />
+                          <AlertTitle>Separación por Horarios</AlertTitle>
                           <AlertDescription>
-                            El sistema ahora procesa tanto trayectos completos como fragmentados, manteniendo el orden
-                            de registros original y sumando distancias parciales hasta completar cada trayecto.
+                            El sistema separa automáticamente los cambiaderos "Change House" y "5x2" basándose en los
+                            horarios de salida con tolerancia de ±15 minutos.
                           </AlertDescription>
                         </Alert>
 
@@ -1108,22 +2734,22 @@ export default function CSVAnalyzer() {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span>Procesando datos avanzados...</span>
+              <span>Procesando con separación de cambiaderos...</span>
               <span>{processProgress.toFixed(0)}%</span>
             </div>
             <Progress value={processProgress} className="h-2" />
             <p className="text-xs text-muted-foreground">
               {processProgress < 30 && "Leyendo archivo..."}
               {processProgress >= 30 && processProgress < 70 && "Analizando estructura del CSV..."}
-              {processProgress >= 70 && processProgress < 90 && "Procesando trayectos completos y fragmentados..."}
-              {processProgress >= 90 && "Calculando estadísticas avanzadas..."}
+              {processProgress >= 70 && processProgress < 90 && "Aplicando separación por horarios..."}
+              {processProgress >= 90 && "Calculando estadísticas con cambiaderos..."}
             </p>
           </div>
         </motion.div>
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-4 mb-6">
+        <TabsList className="grid grid-cols-5 mb-6">
           <TabsTrigger
             value="upload"
             className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
@@ -1151,6 +2777,15 @@ export default function CSVAnalyzer() {
             <span className="sm:hidden">Datos</span>
           </TabsTrigger>
           <TabsTrigger
+            value="classification"
+            className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            disabled={!transformationComplete}
+          >
+            <Clock className="h-4 w-4" />
+            <span className="hidden sm:inline">Clasificación</span>
+            <span className="sm:hidden">Clasif.</span>
+          </TabsTrigger>
+          <TabsTrigger
             value="routes"
             className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             disabled={!transformationComplete}
@@ -1167,33 +2802,31 @@ export default function CSVAnalyzer() {
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Upload className="mr-2 h-5 w-5 text-primary" />
-                  Cargar archivo CSV para análisis avanzado
+                  Cargar archivo CSV con separación automática de cambiaderos
                 </CardTitle>
                 <CardDescription>
-                  Selecciona un archivo CSV con datos de rutas. El sistema procesará tanto trayectos completos como
-                  fragmentados automáticamente.
+                  Selecciona un archivo CSV con datos de rutas. El sistema separará automáticamente "Change House" y
+                  "5x2" basándose en horarios de salida.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid w-full items-center gap-6">
                   <Alert>
-                    <Info className="h-4 w-4" />
-                    <AlertTitle>Procesamiento Avanzado</AlertTitle>
+                    <Clock className="h-4 w-4" />
+                    <AlertTitle>Separación Automática por Horarios</AlertTitle>
                     <AlertDescription>
                       <ul className="list-disc list-inside mt-2 space-y-1">
                         <li>
-                          <strong>Trayectos Completos:</strong> Procesa viajes definidos en una sola fila
+                          <strong>Horarios de Ida:</strong> Compara con horarios de salida desde cada población
                         </li>
                         <li>
-                          <strong>Trayectos Fragmentados:</strong> Suma distancias de múltiples filas consecutivas hasta
-                          completar el viaje
+                          <strong>Horarios de Vuelta:</strong> Change House (7:00 PM) vs 5x2 (5:00 PM)
                         </li>
                         <li>
-                          <strong>Orden Preservado:</strong> Mantiene el orden original de los registros
+                          <strong>Tolerancia:</strong> ±15 minutos para cada horario de referencia
                         </li>
                         <li>
-                          <strong>Filtrado Inteligente:</strong> Solo considera trayectos válidos Parqueadero ↔
-                          Cambiadero
+                          <strong>Formato de Hora:</strong> Soporta formato 24h "HH:mm:ss" (ej: 06:08:27, 15:38:30)
                         </li>
                       </ul>
                     </AlertDescription>
@@ -1265,10 +2898,10 @@ export default function CSVAnalyzer() {
                     <div className="flex-1">
                       {isPreview && (
                         <div className="p-4 bg-muted rounded-md h-full flex flex-col justify-center">
-                          <h3 className="text-lg font-semibold mb-2">Vista previa con trayectos fragmentados</h3>
+                          <h3 className="text-lg font-semibold mb-2">Vista previa con separación de cambiaderos</h3>
                           <p className="text-sm text-muted-foreground mb-4">
-                            Los datos de ejemplo incluyen tanto trayectos completos como fragmentados para demostrar las
-                            nuevas capacidades de procesamiento.
+                            Los datos de ejemplo incluyen horarios de salida en formato 24h (HH:mm:ss) para demostrar la separación automática
+                            entre "Change House" y "5x2".
                           </p>
                           <Button variant="secondary" className="w-full" onClick={() => setActiveTab("data")}>
                             <ExternalLink className="mr-2 h-4 w-4" />
@@ -1306,51 +2939,55 @@ export default function CSVAnalyzer() {
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <FileCheck className="mr-2 h-5 w-5 text-primary" />
-                  Transformar Datos - Procesamiento Avanzado
+                  Configurar Columnas - Separación de Cambiaderos por Horario
                 </CardTitle>
                 <CardDescription>
-                  Configura las columnas para el procesamiento avanzado que manejará tanto trayectos completos como
-                  fragmentados automáticamente.
+                  Configura las columnas incluyendo la columna de horario de salida para la separación automática de
+                  cambiaderos.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
                   <Alert>
-                    <Info className="h-4 w-4" />
-                    <AlertTitle>Procesamiento Inteligente</AlertTitle>
+                    <Clock className="h-4 w-4" />
+                    <AlertTitle>Lógica de Separación por Horarios</AlertTitle>
                     <AlertDescription>
-                      El sistema identificará automáticamente:
+                      El sistema utilizará la columna DepartureTime para:
                       <ul className="list-disc list-inside mt-2 space-y-1">
-                        <li>Trayectos completos (origen y destino en la misma fila)</li>
-                        <li>
-                          Trayectos fragmentados iniciados con origen (suma hacia adelante hasta encontrar destino)
-                        </li>
-                        <li>Trayectos fragmentados iniciados con destino (suma hacia atrás hasta encontrar origen)</li>
-                        <li>Suma automática de distancias parciales para todos los tipos de trayectos fragmentados</li>
+                        <li>Comparar con horarios de referencia específicos por población (ida)</li>
+                        <li>Comparar con horarios de vuelta: Change House (7:00 PM) vs 5x2 (5:00 PM)</li>
+                        <li>Aplicar tolerancia de ±15 minutos para cada horario</li>
+                        <li>Asignar automáticamente al cambiadero correspondiente</li>
                       </ul>
                     </AlertDescription>
                   </Alert>
 
                   <Alert className="mt-4">
                     <Info className="h-4 w-4" />
-                    <AlertTitle>Filtrado de Trayectos Válidos</AlertTitle>
+                    <AlertTitle>Horarios de Referencia</AlertTitle>
                     <AlertDescription>
-                      Solo se procesarán trayectos válidos entre:
-                      <ul className="list-disc list-inside mt-2 space-y-1">
-                        <li>
-                          <strong>Parqueadero → Cambiadero</strong> (Ida)
-                        </li>
-                        <li>
-                          <strong>Cambiadero → Parqueadero</strong> (Vuelta)
-                        </li>
-                      </ul>
-                      Cualquier otro tipo de trayecto será ignorado. Esto aplica tanto para trayectos completos como
-                      fragmentados.
+                      <div className="mt-2 space-y-2">
+                        <p>
+                          <strong>Ejemplos de horarios de ida por población:</strong>
+                        </p>
+                        <ul className="text-xs space-y-1">
+                          <li>• Urumita: Change House (4:10 AM) vs 5x2 (5:05 AM)</li>
+                          <li>• Villanueva: Change House (4:15 AM) vs 5x2 (5:10 AM)</li>
+                          <li>• Valledupar: Change House (3:45 AM) vs 5x2 (4:45 AM)</li>
+                        </ul>
+                        <p>
+                          <strong>Horarios de vuelta:</strong>
+                        </p>
+                        <ul className="text-xs space-y-1">
+                          <li>• Change House: 7:00 PM (±15 min)</li>
+                          <li>• 5x2: 5:00 PM (±15 min)</li>
+                        </ul>
+                      </div>
                     </AlertDescription>
                   </Alert>
 
                   <div className="grid gap-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="assetColumn">Columna de Activo/Bus</Label>
                         <Select
@@ -1434,6 +3071,33 @@ export default function CSVAnalyzer() {
                           </SelectContent>
                         </Select>
                       </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="departureTimeColumn" className="flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
+                          Columna de Horario de Salida
+                        </Label>
+                        <Select
+                          value={columnMappings.departureTime.toString()}
+                          onValueChange={(value) =>
+                            setColumnMappings({ ...columnMappings, departureTime: Number.parseInt(value) })
+                          }
+                        >
+                          <SelectTrigger id="departureTimeColumn">
+                            <SelectValue placeholder="Selecciona la columna" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {headers.map((header, index) => (
+                              <SelectItem key={index} value={index.toString()}>
+                                {index + 1}: {header}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Formato esperado: "HH:mm:ss" en formato 24 horas (ej: 06:08:27, 15:38:30)
+                        </p>
+                      </div>
                     </div>
 
                     <div className="rounded-md border overflow-hidden">
@@ -1448,7 +3112,8 @@ export default function CSVAnalyzer() {
                                     index === columnMappings.assetExtra ||
                                     index === columnMappings.deparfrom ||
                                     index === columnMappings.arriveat ||
-                                    index === columnMappings.distance
+                                    index === columnMappings.distance ||
+                                    index === columnMappings.departureTime
                                       ? "bg-primary/10 sticky top-0 z-10"
                                       : "sticky top-0 z-10"
                                   }
@@ -1475,6 +3140,12 @@ export default function CSVAnalyzer() {
                                         Distancia
                                       </Badge>
                                     )}
+                                    {index === columnMappings.departureTime && (
+                                      <Badge className="self-start" variant="outline">
+                                        <Clock className="h-3 w-3 mr-1" />
+                                        Horario
+                                      </Badge>
+                                    )}
                                   </div>
                                 </TableHead>
                               ))}
@@ -1490,19 +3161,29 @@ export default function CSVAnalyzer() {
                                       cellIndex === columnMappings.assetExtra ||
                                       cellIndex === columnMappings.deparfrom ||
                                       cellIndex === columnMappings.arriveat ||
-                                      cellIndex === columnMappings.distance
+                                      cellIndex === columnMappings.distance ||
+                                      cellIndex === columnMappings.departureTime
                                         ? "bg-primary/5 font-medium"
                                         : ""
                                     }
                                   >
-                                    {cell || (
-                                      <span className="text-muted-foreground italic">
-                                        {cellIndex === columnMappings.deparfrom
-                                          ? "(origen vacío)"
-                                          : cellIndex === columnMappings.arriveat
-                                            ? "(destino vacío)"
-                                            : cell}
-                                      </span>
+                                    {cellIndex === columnMappings.departureTime && cell ? (
+                                      <div className="flex items-center gap-1">
+                                        <Clock className="h-3 w-3 text-primary" />
+                                        <span className="text-xs">{cell}</span>
+                                      </div>
+                                    ) : (
+                                      cell || (
+                                        <span className="text-muted-foreground italic">
+                                          {cellIndex === columnMappings.deparfrom
+                                            ? "(origen vacío)"
+                                            : cellIndex === columnMappings.arriveat
+                                              ? "(destino vacío)"
+                                              : cellIndex === columnMappings.departureTime
+                                                ? "(sin horario)"
+                                                : cell}
+                                        </span>
+                                      )
                                     )}
                                   </TableCell>
                                 ))}
@@ -1514,8 +3195,8 @@ export default function CSVAnalyzer() {
                     </div>
                     {csvData.length > 5 && (
                       <p className="text-sm text-muted-foreground text-center">
-                        Mostrando 5 de {csvData.length} filas - Nota: las celdas vacías en origen/destino indican
-                        trayectos fragmentados
+                        Mostrando 5 de {csvData.length} filas - La columna de horario es esencial para la separación de
+                        cambiaderos
                       </p>
                     )}
                   </div>
@@ -1533,7 +3214,8 @@ export default function CSVAnalyzer() {
                     </>
                   ) : (
                     <>
-                      Procesar Trayectos
+                      <Clock className="mr-2 h-4 w-4" />
+                      Procesar con Separación
                       <ChevronRight className="ml-2 h-4 w-4" />
                     </>
                   )}
@@ -1554,23 +3236,20 @@ export default function CSVAnalyzer() {
                 }}
               />
 
-              {/* Añadir el componente de resumen consolidado en la pestaña "data" */}
-              {/* Reemplazar el componente Card existente en la pestaña "data" con este nuevo componente */}
-              {/* Buscar la sección que comienza con <Card> después de <LocationFilter> en la pestaña "data" */}
-              {/* y reemplazarla con el siguiente código: */}
+              {/* Resumen consolidado con separación de cambiaderos */}
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <div>
                     <CardTitle className="text-xl flex items-center">
                       <Database className="mr-2 h-5 w-5 text-primary" />
-                      Trayectos Procesados (Completos y Fragmentados)
+                      Trayectos con Separación Automática de Cambiaderos
                     </CardTitle>
                     <CardDescription>
-                      {csvData.length} trayectos válidos encontrados{" "}
-                      {isPreview ? "(datos de ejemplo)" : `en ${fileName}`}
+                      {csvData.length} trayectos procesados {isPreview ? "(datos de ejemplo)" : `en ${fileName}`}
                       {statistics && (
                         <span className="ml-2">
-                          • {statistics.completeTrips} completos • {statistics.fragmentedTrips} fragmentados
+                          • {statistics.changeHouseTrips} Change House • {statistics.fiveX2Trips} 5x2 •{" "}
+                          {statistics.unassignedTrips} sin asignar
                         </span>
                       )}
                     </CardDescription>
@@ -1586,118 +3265,110 @@ export default function CSVAnalyzer() {
                         onChange={(e) => setSearchTerm(e.target.value)}
                       />
                     </div>
-                    <Button variant="outline" size="sm" className="h-9" onClick={exportToCSV}>
+                    <Button variant="outline" size="sm" className="h-9 bg-transparent" onClick={exportToCSV}>
                       <Download className="h-4 w-4" />
                       <span className="sr-only sm:not-sr-only sm:ml-2">Exportar</span>
                     </Button>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {/* Resumen Consolidado */}
+                  {/* Resumen Consolidado con Separación de Cambiaderos */}
                   {csvData.length > 0 && (
                     <div className="mb-6">
-                      <h3 className="text-lg font-semibold mb-3">Resumen Consolidado de Trayectos</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {/* Parqueadero → Cambiadero */}
+                      <h3 className="text-lg font-semibold mb-3">Resumen con Separación Automática por Horarios</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        {/* Parqueadero → Change House */}
                         <Card className="border-2 border-green-200">
                           <CardHeader className="py-3">
                             <CardTitle className="text-base flex items-center">
-                              <ArrowRight className="mr-2 h-4 w-4 text-green-600" />
-                              Parqueadero → Cambiadero
+                              <ArrowRight className="mr-2 h-4 w-4 text-green-600" />→ Change House
                             </CardTitle>
                           </CardHeader>
                           <CardContent className="py-2">
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="text-center">
-                                <p className="text-sm text-muted-foreground">Trayectos</p>
-                                <p className="text-xl font-bold text-green-600">
-                                  {generateConsolidatedSummaryData().parqueaderoToCambiadero.trips}
-                                </p>
-                              </div>
-                              <div className="text-center">
-                                <p className="text-sm text-muted-foreground">Distancia</p>
-                                <p className="text-xl font-bold text-green-600">
-                                  {formatColombianNumber(
-                                    generateConsolidatedSummaryData().parqueaderoToCambiadero.distance,
-                                  )}{" "}
-                                  km
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-                              <span>
-                                {generateConsolidatedSummaryData().parqueaderoToCambiadero.completeTrips} completos
-                              </span>
-                              <span>
-                                {generateConsolidatedSummaryData().parqueaderoToCambiadero.fragmentedTrips} fragmentados
-                              </span>
+                            <div className="text-center">
+                              <p className="text-2xl font-bold text-green-600">
+                                {generateConsolidatedSummaryData().parqueaderoToCambiadero.changeHouse +
+                                  generateConsolidatedSummaryData().cambiaderoToParqueadero.changeHouse}
+                              </p>
+                              <p className="text-xs text-muted-foreground">Total trayectos</p>
                             </div>
                           </CardContent>
                         </Card>
 
-                        {/* Cambiadero → Parqueadero */}
+                        {/* Parqueadero → 5x2 */}
                         <Card className="border-2 border-blue-200">
                           <CardHeader className="py-3">
                             <CardTitle className="text-base flex items-center">
-                              <ArrowRight className="mr-2 h-4 w-4 text-blue-600" />
-                              Cambiadero → Parqueadero
+                              <ArrowRight className="mr-2 h-4 w-4 text-blue-600" />→ 5x2
                             </CardTitle>
                           </CardHeader>
                           <CardContent className="py-2">
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="text-center">
-                                <p className="text-sm text-muted-foreground">Trayectos</p>
-                                <p className="text-xl font-bold text-blue-600">
-                                  {generateConsolidatedSummaryData().cambiaderoToParqueadero.trips}
-                                </p>
-                              </div>
-                              <div className="text-center">
-                                <p className="text-sm text-muted-foreground">Distancia</p>
-                                <p className="text-xl font-bold text-blue-600">
-                                  {formatColombianNumber(
-                                    generateConsolidatedSummaryData().cambiaderoToParqueadero.distance,
-                                  )}{" "}
-                                  km
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-                              <span>
-                                {generateConsolidatedSummaryData().cambiaderoToParqueadero.completeTrips} completos
-                              </span>
-                              <span>
-                                {generateConsolidatedSummaryData().cambiaderoToParqueadero.fragmentedTrips} fragmentados
-                              </span>
+                            <div className="text-center">
+                              <p className="text-2xl font-bold text-blue-600">
+                                {generateConsolidatedSummaryData().parqueaderoToCambiadero.fiveX2 +
+                                  generateConsolidatedSummaryData().cambiaderoToParqueadero.fiveX2}
+                              </p>
+                              <p className="text-xs text-muted-foreground">Total trayectos</p>
                             </div>
                           </CardContent>
                         </Card>
 
-                        {/* Total */}
-                        <Card className="border-2 border-primary/20">
+                        {/* Total Ida */}
+                        <Card className="border-2 border-purple-200">
                           <CardHeader className="py-3">
                             <CardTitle className="text-base flex items-center">
-                              <BarChart3 className="mr-2 h-4 w-4 text-primary" />
-                              Total Consolidado
+                              <ArrowRight className="mr-2 h-4 w-4 text-purple-600" />
+                              Total Ida
                             </CardTitle>
                           </CardHeader>
                           <CardContent className="py-2">
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="text-center">
-                                <p className="text-sm text-muted-foreground">Trayectos</p>
-                                <p className="text-xl font-bold text-primary">
-                                  {generateConsolidatedSummaryData().total.trips}
-                                </p>
-                              </div>
-                              <div className="text-center">
-                                <p className="text-sm text-muted-foreground">Distancia</p>
-                                <p className="text-xl font-bold text-primary">
-                                  {formatColombianNumber(generateConsolidatedSummaryData().total.distance)} km
-                                </p>
-                              </div>
+                            <div className="text-center">
+                              <p className="text-2xl font-bold text-purple-600">
+                                {generateConsolidatedSummaryData().parqueaderoToCambiadero.trips}
+                              </p>
+                              <p className="text-xs text-muted-foreground">Parqueadero → Cambiadero</p>
                             </div>
-                            <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-                              <span>{generateConsolidatedSummaryData().total.completeTrips} completos</span>
-                              <span>{generateConsolidatedSummaryData().total.fragmentedTrips} fragmentados</span>
+                          </CardContent>
+                        </Card>
+
+                        {/* Total Vuelta */}
+                        <Card className="border-2 border-orange-200">
+                          <CardHeader className="py-3">
+                            <CardTitle className="text-base flex items-center">
+                              <ArrowRight className="mr-2 h-4 w-4 text-orange-600 rotate-180" />
+                              Total Vuelta
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="py-2">
+                            <div className="text-center">
+                              <p className="text-2xl font-bold text-orange-600">
+                                {generateConsolidatedSummaryData().cambiaderoToParqueadero.trips}
+                              </p>
+                              <p className="text-xs text-muted-foreground">Cambiadero → Parqueadero</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {/* Tasa de Asignación */}
+                        <Card className="border-2 border-primary/20">
+                          <CardHeader className="py-3">
+                            <CardTitle className="text-base flex items-center">
+                              <Clock className="mr-2 h-4 w-4 text-primary" />
+                              Tasa Asignación
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="py-2">
+                            <div className="text-center">
+                              <p className="text-2xl font-bold text-primary">
+                                {(() => {
+                                  const total = generateConsolidatedSummaryData().total.trips
+                                  const assigned =
+                                    generateConsolidatedSummaryData().total.changeHouse +
+                                    generateConsolidatedSummaryData().total.fiveX2
+                                  return total > 0 ? ((assigned / total) * 100).toFixed(0) : 0
+                                })()}%
+                              </p>
+                              <p className="text-xs text-muted-foreground">Asignados por horario</p>
                             </div>
                           </CardContent>
                         </Card>
@@ -1719,7 +3390,9 @@ export default function CSVAnalyzer() {
                                     header.toLowerCase() === "deparfrom" ||
                                     header.toLowerCase() === "arriveat" ||
                                     header.toLowerCase() === "distance" ||
-                                    header.toLowerCase() === "tipotrayecto"
+                                    header.toLowerCase() === "departuretime" ||
+                                    header.toLowerCase() === "tipotrayecto" ||
+                                    header.toLowerCase().includes("cambiadero")
                                       ? "bg-primary/10 font-bold"
                                       : ""
                                   }
@@ -1739,13 +3412,36 @@ export default function CSVAnalyzer() {
                                       headers[cellIndex]?.toLowerCase() === "assetextra" ||
                                       headers[cellIndex]?.toLowerCase() === "deparfrom" ||
                                       headers[cellIndex]?.toLowerCase() === "arriveat" ||
-                                      headers[cellIndex]?.toLowerCase() === "distance"
+                                      headers[cellIndex]?.toLowerCase() === "distance" ||
+                                      headers[cellIndex]?.toLowerCase() === "departuretime" ||
+                                      headers[cellIndex]?.toLowerCase().includes("camb")
                                         ? "bg-primary/5 font-medium"
                                         : ""
                                     }
                                   >
                                     {headers[cellIndex]?.toLowerCase() === "tipotrayecto" ? (
                                       <Badge variant={cell === "Fragmentado" ? "secondary" : "outline"}>{cell}</Badge>
+                                    ) : headers[cellIndex]?.toLowerCase().includes("cambiadero") ? (
+                                      <Badge
+                                        variant={
+                                          cell === "Cambiadero Change House"
+                                            ? "default"
+                                            : cell === "Cambiadero 5x2"
+                                              ? "secondary"
+                                              : "outline"
+                                        }
+                                      >
+                                        {cell === "Cambiadero Change House"
+                                          ? "🏢 Change House"
+                                          : cell === "Cambiadero 5x2"
+                                            ? "🔄 5x2"
+                                            : cell}
+                                      </Badge>
+                                    ) : headers[cellIndex]?.toLowerCase() === "departuretime" ? (
+                                      <div className="flex items-center gap-1">
+                                        <Clock className="h-3 w-3 text-primary" />
+                                        <span className="text-xs font-mono">{cell}</span>
+                                      </div>
                                     ) : (
                                       cell
                                     )}
@@ -1760,7 +3456,7 @@ export default function CSVAnalyzer() {
 
                     {csvData.length > 10 && (
                       <p className="text-sm text-muted-foreground text-center">
-                        Mostrando 10 de {csvData.length} trayectos procesados
+                        Mostrando 10 de {csvData.length} trayectos procesados con separación de cambiaderos
                       </p>
                     )}
                   </div>
@@ -1769,9 +3465,10 @@ export default function CSVAnalyzer() {
                   <div className="flex w-full items-center justify-between">
                     <div className="flex gap-2">
                       <Badge variant="outline" className="bg-primary/10">
-                        Procesamiento avanzado activo
+                        <Clock className="mr-1 h-3 w-3" />
+                        Separación por horarios activa
                       </Badge>
-                      <Badge variant="secondary">Trayectos fragmentados incluidos</Badge>
+                      <Badge variant="secondary">Tolerancia ±15 minutos</Badge>
                     </div>
                     <Button variant="outline" size="sm" onClick={() => setActiveTab("routes")} className="ml-auto">
                       Ver análisis detallado
@@ -1784,115 +3481,471 @@ export default function CSVAnalyzer() {
               {csvData.length > 0 && (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                   <StatsCard
-                    title="Procesamiento"
-                    value="Avanzado"
-                    icon={<FileText className="h-4 w-4" />}
+                    title="Separación Automática"
+                    value="Activa"
+                    icon={<Clock className="h-4 w-4" />}
                     description={
                       <div className="text-xs text-muted-foreground mt-2">
-                        <p>✓ Trayectos completos</p>
-                        <p>✓ Trayectos fragmentados</p>
-                        <p>✓ Suma de distancias parciales</p>
-                        <p>✓ Orden de registros preservado</p>
+                        <p>✓ Horarios de ida por población</p>
+                        <p>✓ Horarios de vuelta unificados</p>
+                        <p>✓ Tolerancia ±15 minutos</p>
+                        <p>✓ Asignación automática</p>
                       </div>
                     }
                   />
 
                   <StatsCard
-                    title="Distancia Total"
-                    value={(() => {
-                      const distanceIndex = headers.findIndex((h) => h.toLowerCase() === "distance")
-                      if (distanceIndex !== -1) {
-                        const total = csvData.reduce(
-                          (sum, row) => sum + (Number.parseFloat(row[distanceIndex]) || 0),
-                          0,
-                        )
-                        return formatColombianNumber(total) + " km"
-                      }
-                      return "N/A"
-                    })()}
-                    icon={<Map className="h-4 w-4" />}
-                  />
-
-                  <StatsCard
-                    title="Total de Trayectos"
-                    value={csvData.length}
+                    title="Change House"
+                    value={statistics?.changeHouseTrips || 0}
                     icon={<ArrowRight className="h-4 w-4" />}
+                    description="Asignados por horario"
                   />
 
                   <StatsCard
-                    title="Activos Únicos"
-                    value={(() => {
-                      const assetIndex = headers.findIndex((h) => h.toLowerCase() === "assetextra")
-                      if (assetIndex !== -1) {
-                        const uniqueAssets = new Set(csvData.map((row) => row[assetIndex]))
-                        return uniqueAssets.size
-                      }
-                      return "N/A"
-                    })()}
-                    icon={<FileSpreadsheet className="h-4 w-4" />}
+                    title="5x2"
+                    value={statistics?.fiveX2Trips || 0}
+                    icon={<ArrowRight className="h-4 w-4" />}
+                    description="Asignados por horario"
+                  />
+
+                  <StatsCard
+                    title="Sin Asignar"
+                    value={statistics?.unassignedTrips || 0}
+                    icon={<AlertTriangle className="h-4 w-4" />}
+                    description="Fuera de rangos horarios"
                   />
                 </div>
               )}
 
-              {csvData.length > 0 && (
+              {/* Panel de Validación con Separación de Cambiaderos */}
+              {validationResults.totalProcessed > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <BarChart3 className="h-5 w-5 text-primary" />
-                      Resumen por Activo (Incluyendo Trayectos Fragmentados)
+                      <Clock className="h-5 w-5 text-primary" />
+                      Panel de Separación de Cambiaderos por Horarios
                     </CardTitle>
                     <CardDescription>
-                      Análisis detallado por activo con diferenciación de tipos de trayecto
+                      Resultado detallado de la separación automática entre "Change House" y "5x2" basada en horarios de
+                      salida
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <ScrollArea className="h-[400px] pr-4">
-                      <div className="space-y-6">
-                        {assetStats.map(
-                          ({ asset, totalDistance, tripCount, averageDistance, completeTrips, fragmentedTrips }) => (
-                            <div key={asset} className="space-y-3">
-                              <div className="flex justify-between">
-                                <div>
-                                  <h4 className="font-medium flex items-center gap-2">
-                                    {asset}
-                                    <Badge variant="outline">{tripCount} trayectos total</Badge>
-                                  </h4>
-                                  <div className="flex gap-2 mt-1">
-                                    <Badge variant="outline" className="text-xs">
-                                      {completeTrips} completos
+                    <div className="space-y-6">
+                      {/* Métricas de separación */}
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <Card className="border-2 border-green-200 bg-green-50">
+                          <CardContent className="p-4 text-center">
+                            <p className="text-sm text-muted-foreground">Change House</p>
+                            <p className="text-2xl font-bold text-green-600">
+                              {validationResults.cambiaderoAssignments.changeHouse}
+                            </p>
+                            <p className="text-xs text-green-700">Asignados por horario</p>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="border-2 border-blue-200 bg-blue-50">
+                          <CardContent className="p-4 text-center">
+                            <p className="text-sm text-muted-foreground">5x2</p>
+                            <p className="text-2xl font-bold text-blue-600">
+                              {validationResults.cambiaderoAssignments.fiveX2}
+                            </p>
+                            <p className="text-xs text-blue-700">Asignados por horario</p>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="border-2 border-orange-200 bg-orange-50">
+                          <CardContent className="p-4 text-center">
+                            <p className="text-sm text-muted-foreground">Sin Asignar</p>
+                            <p className="text-2xl font-bold text-orange-600">
+                              {validationResults.cambiaderoAssignments.unassigned}
+                            </p>
+                            <p className="text-xs text-orange-700">Fuera de rangos</p>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="border-2 border-primary/20 bg-primary/5">
+                          <CardContent className="p-4 text-center">
+                            <p className="text-sm text-muted-foreground">Tasa de Éxito</p>
+                            <p className="text-2xl font-bold text-primary">
+                              {(() => {
+                                const total =
+                                  validationResults.cambiaderoAssignments.changeHouse +
+                                  validationResults.cambiaderoAssignments.fiveX2 +
+                                  validationResults.cambiaderoAssignments.unassigned
+                                const assigned =
+                                  validationResults.cambiaderoAssignments.changeHouse +
+                                  validationResults.cambiaderoAssignments.fiveX2
+                                return total > 0 ? ((assigned / total) * 100).toFixed(1) : 0
+                              })()}%
+                            </p>
+                            <p className="text-xs text-primary">Separación exitosa</p>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      <Tabs defaultValue="accepted" className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                          <TabsTrigger value="accepted" className="flex items-center gap-2">
+                            <Check className="h-4 w-4" />
+                            Procesados ({validationResults.acceptedTrips.length})
+                          </TabsTrigger>
+                          <TabsTrigger value="rejected" className="flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4" />
+                            Rechazados ({validationResults.rejectedTrips.length})
+                          </TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="accepted" className="mt-4">
+                          <ScrollArea className="h-[300px] pr-4">
+                            <div className="space-y-2">
+                              {validationResults.acceptedTrips.map((trip, index) => (
+                                <div
+                                  key={index}
+                                  className="flex items-center justify-between p-3 border rounded-md bg-green-50 border-green-200"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <Clock className="h-4 w-4 text-green-600" />
+                                    <div>
+                                      <p className="font-medium text-sm">{trip.asset}</p>
+                                      <p className="text-xs text-muted-foreground">{trip.route}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Badge variant={trip.direction === "Ida" ? "default" : "secondary"}>
+                                      {trip.direction === "Ida" ? "🚛 Ida" : "🔄 Vuelta"}
                                     </Badge>
-                                    <Badge variant="secondary" className="text-xs">
-                                      {fragmentedTrips} fragmentados
+                                    {trip.cambiadero && (
+                                      <Badge
+                                        variant={
+                                          trip.cambiadero === "Cambiadero Change House" ? "default" : "secondary"
+                                        }
+                                      >
+                                        {trip.cambiadero === "Cambiadero Change House" ? "🏢 CH" : "🔄 5x2"}
+                                      </Badge>
+                                    )}
+                                    <Badge variant="outline" className="text-xs">
+                                      {trip.type}
                                     </Badge>
                                   </div>
-                                  <p className="text-sm text-muted-foreground mt-1">
-                                    {averageDistance.toFixed(2)} km promedio por trayecto
-                                  </p>
                                 </div>
-                                <div className="text-right">
-                                  <p className="font-bold">{totalDistance.toFixed(2)} km</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {((fragmentedTrips / tripCount) * 100).toFixed(1)}% fragmentados
-                                  </p>
+                              ))}
+                              {validationResults.acceptedTrips.length === 0 && (
+                                <div className="text-center py-8 text-muted-foreground">
+                                  No hay trayectos procesados aún
                                 </div>
-                              </div>
-
-                              <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
-                                <div
-                                  className="bg-primary h-2.5 rounded-full transition-all"
-                                  style={{
-                                    width: `${(totalDistance / assetStats[0].totalDistance) * 100}%`,
-                                  }}
-                                ></div>
-                              </div>
+                              )}
                             </div>
-                          ),
-                        )}
+                          </ScrollArea>
+                        </TabsContent>
+
+                        <TabsContent value="rejected" className="mt-4">
+                          <ScrollArea className="h-[300px] pr-4">
+                            <div className="space-y-2">
+                              {validationResults.rejectedTrips.map((trip, index) => (
+                                <div
+                                  key={index}
+                                  className="flex items-center justify-between p-3 border rounded-md bg-red-50 border-red-200"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <AlertTriangle className="h-4 w-4 text-red-600" />
+                                    <div>
+                                      <p className="font-medium text-sm">{trip.asset}</p>
+                                      <p className="text-xs text-muted-foreground">{trip.route}</p>
+                                      <p className="text-xs text-red-600 mt-1">{trip.reason}</p>
+                                    </div>
+                                  </div>
+                                  <Badge variant="destructive" className="text-xs">
+                                    {trip.type}
+                                  </Badge>
+                                </div>
+                              ))}
+                              {validationResults.rejectedTrips.length === 0 && (
+                                <div className="text-center py-8 text-muted-foreground">
+                                  ¡Excelente! Todos los trayectos fueron procesados exitosamente
+                                </div>
+                              )}
+                            </div>
+                          </ScrollArea>
+                        </TabsContent>
+                      </Tabs>
+
+                      <Alert>
+                        <Clock className="h-4 w-4" />
+                        <AlertTitle>Separación Automática por Horarios</AlertTitle>
+                        <AlertDescription>
+                          El sistema compara los horarios de salida (DepartureTime) con:
+                          <br />• <strong>Horarios de ida:</strong> Específicos por población con tolerancia ±15 min
+                          <br />• <strong>Horarios de vuelta:</strong> Change House (7:00 PM) vs 5x2 (5:00 PM) ±15 min
+                          <br />• <strong>Formato soportado:</strong> "HH:mm:ss" en formato 24 horas
+                        </AlertDescription>
+                      </Alert>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </motion.div>
+        </TabsContent>
+
+        <TabsContent value="classification">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+            <div className="grid gap-6">
+              {/* Header de la pestaña */}
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h2 className="text-2xl font-bold flex items-center gap-2">
+                    <Clock className="h-6 w-6 text-primary" />
+                    Sistema de Separación de Cambiaderos por Horarios
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Clasificación automática de "Change House" en dos cambiaderos virtuales según horarios de salida
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={generateSeparatedDatasets} variant="outline" size="sm">
+                    <Clock className="h-4 w-4 mr-2" />
+                    Regenerar Clasificación
+                  </Button>
+                  <Button 
+                    onClick={exportSeparatedDatasets} 
+                    disabled={classificationResults.statistics.totalProcessed === 0}
+                    size="sm"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Exportar Datasets
+                  </Button>
+                </div>
+              </div>
+
+              {/* Resumen estadístico principal */}
+              <Card className="border-2 border-primary/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5 text-primary" />
+                    Resumen de Clasificación por Horarios
+                  </CardTitle>
+                  <CardDescription>
+                    Resultados de la separación automática según horarios de referencia
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <Card className="border-2 border-gray-200 bg-gray-50">
+                      <CardContent className="p-4 text-center">
+                        <p className="text-sm text-muted-foreground">Total Procesado</p>
+                        <p className="text-2xl font-bold text-gray-700">
+                          {classificationResults.statistics.totalProcessed}
+                        </p>
+                        <p className="text-xs text-gray-600">Registros analizados</p>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-2 border-green-200 bg-green-50">
+                      <CardContent className="p-4 text-center">
+                        <p className="text-sm text-muted-foreground">Change House</p>
+                        <p className="text-2xl font-bold text-green-600">
+                          {classificationResults.statistics.changeHouseCount}
+                        </p>
+                        <p className="text-xs text-green-700">Horario temprano</p>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-2 border-blue-200 bg-blue-50">
+                      <CardContent className="p-4 text-center">
+                        <p className="text-sm text-muted-foreground">5x2</p>
+                        <p className="text-2xl font-bold text-blue-600">
+                          {classificationResults.statistics.fiveX2Count}
+                        </p>
+                        <p className="text-xs text-blue-700">Horario tardío</p>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-2 border-orange-200 bg-orange-50">
+                      <CardContent className="p-4 text-center">
+                        <p className="text-sm text-muted-foreground">Sin Asignar</p>
+                        <p className="text-2xl font-bold text-orange-600">
+                          {classificationResults.statistics.unassignedCount}
+                        </p>
+                        <p className="text-xs text-orange-700">Fuera de rangos</p>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-2 border-primary/20 bg-primary/5">
+                      <CardContent className="p-4 text-center">
+                        <p className="text-sm text-muted-foreground">Tasa de Éxito</p>
+                        <p className="text-2xl font-bold text-primary">
+                          {classificationResults.statistics.successRate.toFixed(1)}%
+                        </p>
+                        <p className="text-xs text-primary">Asignación exitosa</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Análisis de errores por categoría */}
+              {Object.keys(classificationResults.statistics.errorsByCategory).length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-orange-500" />
+                      Análisis de Errores por Categoría
+                    </CardTitle>
+                    <CardDescription>
+                      Desglose detallado de los tipos de errores y casos especiales encontrados
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {Object.entries(classificationResults.statistics.errorsByCategory).map(([category, count]) => (
+                        <div key={category} className="border rounded-md p-3 text-center">
+                          <p className="text-xs text-muted-foreground capitalize">{category.replace(/_/g, ' ')}</p>
+                          <p className="text-lg font-bold">{count}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Distribución por población */}
+              {Object.keys(classificationResults.statistics.distributionByPopulation).length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Map className="h-5 w-5 text-blue-500" />
+                      Distribución por Población
+                    </CardTitle>
+                    <CardDescription>
+                      Análisis de asignaciones por cada población con horarios específicos
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ScrollArea className="h-[300px]">
+                      <div className="space-y-3">
+                        {Object.entries(classificationResults.statistics.distributionByPopulation)
+                          .sort(([,a], [,b]) => (a.changeHouse + a.fiveX2 + a.unassigned) - (b.changeHouse + b.fiveX2 + b.unassigned))
+                          .reverse()
+                          .map(([population, distribution]) => {
+                            const total = distribution.changeHouse + distribution.fiveX2 + distribution.unassigned
+                            return (
+                              <div key={population} className="border rounded-md p-4">
+                                <div className="flex justify-between items-center mb-2">
+                                  <h4 className="font-medium text-sm">{population}</h4>
+                                  <Badge variant="outline">{total} total</Badge>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2 text-xs">
+                                  <div className="text-center p-2 bg-green-50 rounded border">
+                                    <p className="font-medium text-green-700">Change House</p>
+                                    <p className="text-green-600">{distribution.changeHouse}</p>
+                                  </div>
+                                  <div className="text-center p-2 bg-blue-50 rounded border">
+                                    <p className="font-medium text-blue-700">5x2</p>
+                                    <p className="text-blue-600">{distribution.fiveX2}</p>
+                                  </div>
+                                  <div className="text-center p-2 bg-orange-50 rounded border">
+                                    <p className="font-medium text-orange-700">Sin Asignar</p>
+                                    <p className="text-orange-600">{distribution.unassigned}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
                       </div>
                     </ScrollArea>
                   </CardContent>
                 </Card>
               )}
+
+              {/* Log detallado de clasificación */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Info className="h-5 w-5 text-blue-500" />
+                    Log Detallado de Clasificación
+                  </CardTitle>
+                  <CardDescription>
+                    Registro completo de decisiones de clasificación con razones detalladas
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[400px]">
+                    <div className="space-y-2">
+                      {classificationResults.detailedLog.length > 0 ? (
+                        classificationResults.detailedLog.map((entry, index) => (
+                          <div
+                            key={index}
+                            className={`border rounded-md p-3 ${
+                              entry.assignedTo === "Change House"
+                                ? "bg-green-50 border-green-200"
+                                : entry.assignedTo === "5x2"
+                                ? "bg-blue-50 border-blue-200"
+                                : "bg-orange-50 border-orange-200"
+                            }`}
+                          >
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-xs">
+                                  {entry.asset}
+                                </Badge>
+                                <Badge
+                                  variant={
+                                    entry.assignedTo === "Change House"
+                                      ? "default"
+                                      : entry.assignedTo === "5x2"
+                                      ? "secondary"
+                                      : "destructive"
+                                  }
+                                  className="text-xs"
+                                >
+                                  {entry.assignedTo}
+                                </Badge>
+                              </div>
+                              <span className="text-xs text-muted-foreground font-mono">
+                                {entry.departureTime}
+                              </span>
+                            </div>
+                            <p className="text-sm font-medium mb-1">{entry.route}</p>
+                            <p className="text-xs text-muted-foreground">{entry.reason}</p>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <Clock className="h-8 w-8 mx-auto mb-2" />
+                          <p>No hay datos de clasificación disponibles</p>
+                          <p className="text-xs">Genera la clasificación para ver el log detallado</p>
+                        </div>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+
+              {/* Información del algoritmo */}
+              <Alert>
+                <Clock className="h-4 w-4" />
+                <AlertTitle>Algoritmo de Clasificación por Horarios</AlertTitle>
+                <AlertDescription>
+                  <div className="mt-2 space-y-2 text-sm">
+                    <p><strong>PASO 1:</strong> Validación de lógica general (origen-destino válidos)</p>
+                    <p><strong>PASO 2:</strong> Si involucra Change House → aplicar clasificación por horario</p>
+                    <p><strong>PASO 3:</strong> Asignar al cambiadero virtual correspondiente</p>
+                    <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <p className="font-medium">Viajes de Ida (Población → Cambiadero):</p>
+                        <p>• Fuente: Horario desde población</p>
+                        <p>• Tolerancia: ±10 minutos</p>
+                      </div>
+                      <div>
+                        <p className="font-medium">Viajes de Vuelta (Cambiadero → Población):</p>
+                        <p>• Fuente: Horario desde cambiadero</p>
+                        <p>• Tolerancia: ±15 minutos</p>
+                      </div>
+                    </div>
+                  </div>
+                </AlertDescription>
+              </Alert>
             </div>
           </motion.div>
         </TabsContent>
@@ -1902,9 +3955,9 @@ export default function CSVAnalyzer() {
             <div className="grid gap-6">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                  <h2 className="text-2xl font-bold">Análisis Avanzado de Trayectos</h2>
+                  <h2 className="text-2xl font-bold">Análisis de Trayectos con Separación de Cambiaderos</h2>
                   <p className="text-sm text-muted-foreground">
-                    Análisis completo incluyendo trayectos fragmentados entre Parqueaderos y Cambiaderos
+                    Análisis completo con separación automática entre "Change House" y "5x2" por horarios
                   </p>
                 </div>
                 <div className="flex items-center gap-2 w-full md:w-auto">
@@ -1926,8 +3979,6 @@ export default function CSVAnalyzer() {
               </div>
 
               <div className="grid gap-4">
-                {/* Map visualization removed */}
-
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -1935,8 +3986,10 @@ export default function CSVAnalyzer() {
                 >
                   <Card>
                     <CardHeader>
-                      <CardTitle>Resumen Avanzado de Trayectos</CardTitle>
-                      <CardDescription>Estadísticas incluyendo procesamiento de trayectos fragmentados</CardDescription>
+                      <CardTitle>Resumen con Separación de Cambiaderos</CardTitle>
+                      <CardDescription>
+                        Estadísticas incluyendo asignación automática por horarios de salida
+                      </CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-6">
@@ -1952,20 +4005,24 @@ export default function CSVAnalyzer() {
                         </div>
 
                         {statistics && (
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="grid grid-cols-3 gap-4">
                             <div className="border rounded-md p-4 text-center bg-green-50">
-                              <p className="text-sm text-muted-foreground">Completos</p>
-                              <p className="text-xl font-bold text-green-600">{statistics.completeTrips}</p>
+                              <p className="text-sm text-muted-foreground">Change House</p>
+                              <p className="text-xl font-bold text-green-600">{statistics.changeHouseTrips}</p>
                             </div>
                             <div className="border rounded-md p-4 text-center bg-blue-50">
-                              <p className="text-sm text-muted-foreground">Fragmentados</p>
-                              <p className="text-xl font-bold text-blue-600">{statistics.fragmentedTrips}</p>
+                              <p className="text-sm text-muted-foreground">5x2</p>
+                              <p className="text-xl font-bold text-blue-600">{statistics.fiveX2Trips}</p>
+                            </div>
+                            <div className="border rounded-md p-4 text-center bg-orange-50">
+                              <p className="text-sm text-muted-foreground">Sin Asignar</p>
+                              <p className="text-xl font-bold text-orange-600">{statistics.unassignedTrips}</p>
                             </div>
                           </div>
                         )}
 
                         <div className="space-y-2">
-                          <h4 className="text-sm font-medium">Rutas más frecuentes</h4>
+                          <h4 className="text-sm font-medium">Rutas más frecuentes con separación</h4>
                           <div className="space-y-2">
                             {routes.slice(0, 5).map((route, index) => (
                               <div
@@ -1983,6 +4040,16 @@ export default function CSVAnalyzer() {
                                       <Badge variant="secondary" className="text-xs">
                                         {route.fragmentedTrips}F
                                       </Badge>
+                                      {route.changeHouseTrips > 0 && (
+                                        <Badge variant="default" className="text-xs">
+                                          {route.changeHouseTrips}CH
+                                        </Badge>
+                                      )}
+                                      {route.fiveX2Trips > 0 && (
+                                        <Badge variant="secondary" className="text-xs">
+                                          {route.fiveX2Trips}5x2
+                                        </Badge>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
@@ -1992,7 +4059,9 @@ export default function CSVAnalyzer() {
                               </div>
                             ))}
                           </div>
-                          <p className="text-xs text-muted-foreground">C = Completos, F = Fragmentados</p>
+                          <p className="text-xs text-muted-foreground">
+                            C = Completos, F = Fragmentados, CH = Change House, 5x2 = Cambiadero 5x2
+                          </p>
                         </div>
                       </div>
                     </CardContent>
@@ -2001,7 +4070,7 @@ export default function CSVAnalyzer() {
               </div>
 
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold">Detalle de Rutas con Información de Procesamiento</h3>
+                <h3 className="text-xl font-bold">Detalle de Rutas con Separación de Cambiaderos</h3>
                 {searchTerm && (
                   <Badge variant="secondary" className="mb-2">
                     Mostrando {filteredRoutes.length} de {routes.length} rutas
@@ -2042,152 +4111,4 @@ export default function CSVAnalyzer() {
       </Tabs>
     </div>
   )
-
-  // Define calculateRoutes function
-  function calculateRoutes() {
-    const departureIndex = headers.findIndex((h) => h.toLowerCase() === "deparfrom")
-    const arrivalIndex = headers.findIndex((h) => h.toLowerCase() === "arriveat")
-    const distanceIndex = headers.findIndex((h) => h.toLowerCase() === "distance")
-    const assetIndex = headers.findIndex((h) => h.toLowerCase() === "assetextra")
-    const typeIndex = headers.findIndex((h) => h.toLowerCase() === "tipotrayecto")
-
-    if (departureIndex === -1 || arrivalIndex === -1 || distanceIndex === -1) {
-      return []
-    }
-
-    // Función para formatear números en formato colombiano
-    const formatColombianNumber = (number: number, decimals = 2): string => {
-      return number.toLocaleString("es-CO", {
-        minimumFractionDigits: decimals,
-        maximumFractionDigits: decimals,
-      })
-    }
-
-    // Función para crear clave unificada de ruta
-    const createUnifiedRouteKey = (departure: string, arrival: string): string => {
-      // Extraer nombres base sin "Parqueadero" o "Cambiadero"
-      const depBase = departure.replace(/^(Parqueadero|Cambiadero)\s+/, "")
-      const arrBase = arrival.replace(/^(Parqueadero|Cambiadero)\s+/, "")
-
-      // Ordenar alfabéticamente para unificar rutas bidireccionales
-      const [first, second] = [depBase, arrBase].sort()
-      return `${first} ↔ ${second}`
-    }
-
-    // Función para determinar dirección del viaje
-    const getTripDirection = (departure: string, arrival: string): string => {
-      const isOriginParqueadero = departure.startsWith("Parqueadero")
-      const isDestinationCambiadero = arrival.startsWith("Cambiadero")
-
-      if (isOriginParqueadero && isDestinationCambiadero) {
-        return "Ida" // Parqueadero → Cambiadero
-      } else {
-        return "Vuelta" // Cambiadero → Parqueadero
-      }
-    }
-
-    const unifiedRoutes: Record<
-      string,
-      {
-        count: number
-        totalDistance: number
-        assets: Set<string>
-        trips: Array<{
-          asset: string
-          distance: number
-          date?: string
-          type: string
-          originalRows?: string
-          direction: string
-          fullRoute: string
-        }>
-        completeTrips: number
-        fragmentedTrips: number
-        outboundTrips: number // Parqueadero → Cambiadero
-        returnTrips: number // Cambiadero → Parqueadero
-        outboundDistance: number
-        returnDistance: number
-      }
-    > = {}
-
-    csvData.forEach((row) => {
-      const departure = row[departureIndex]
-      const arrival = row[arrivalIndex]
-      const asset = assetIndex !== -1 ? row[assetIndex] : "Desconocido"
-      const date = row[headers.findIndex((h) => h.toLowerCase().includes("date"))] || undefined
-      const distance = Number.parseFloat(row[distanceIndex]) || 0
-      const tripType = typeIndex !== -1 ? row[typeIndex] : "Desconocido"
-      const originalRows = row[headers.findIndex((h) => h.toLowerCase().includes("filas"))] || ""
-
-      const unifiedKey = createUnifiedRouteKey(departure, arrival)
-      const direction = getTripDirection(departure, arrival)
-      const fullRoute = `${departure} → ${arrival}`
-
-      if (!unifiedRoutes[unifiedKey]) {
-        unifiedRoutes[unifiedKey] = {
-          count: 0,
-          totalDistance: 0,
-          assets: new Set(),
-          trips: [],
-          completeTrips: 0,
-          fragmentedTrips: 0,
-          outboundTrips: 0,
-          returnTrips: 0,
-          outboundDistance: 0,
-          returnDistance: 0,
-        }
-      }
-
-      const route = unifiedRoutes[unifiedKey]
-
-      // Actualizar contadores generales
-      route.count += 1
-      route.totalDistance += distance
-      route.assets.add(asset)
-      route.trips.push({
-        asset,
-        distance,
-        date,
-        type: tripType,
-        originalRows,
-        direction,
-        fullRoute,
-      })
-
-      // Actualizar contadores por tipo de trayecto
-      if (tripType === "Completo") {
-        route.completeTrips += 1
-      } else if (tripType === "Fragmentado") {
-        route.fragmentedTrips += 1
-      }
-
-      // Actualizar contadores por dirección
-      if (direction === "Ida") {
-        route.outboundTrips += 1
-        route.outboundDistance += distance
-      } else {
-        route.returnTrips += 1
-        route.returnDistance += distance
-      }
-    })
-
-    // Convertir a array y ordenar por frecuencia
-    return Object.entries(unifiedRoutes)
-      .map(([route, data]) => ({
-        route,
-        count: data.count,
-        totalDistance: data.totalDistance,
-        averageDistance: data.totalDistance / data.count,
-        uniqueAssets: data.assets.size,
-        assets: Array.from(data.assets),
-        trips: data.trips,
-        completeTrips: data.completeTrips,
-        fragmentedTrips: data.fragmentedTrips,
-        outboundTrips: data.outboundTrips,
-        returnTrips: data.returnTrips,
-        outboundDistance: data.outboundDistance,
-        returnDistance: data.returnDistance,
-      }))
-      .sort((a, b) => b.count - a.count)
-  }
 }
