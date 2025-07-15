@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: 'CerrejonTrackApp',
   description: 'Luis Lopez',
   generator: 'Lals.Dev',
+  icons: {
+    icon: '/favicon.ico',
+  },
 }
 
 export default function RootLayout({
