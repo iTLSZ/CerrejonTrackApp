@@ -2578,7 +2578,7 @@ export default function CSVAnalyzer() {
           className="flex flex-col"
         >
           <h1 className="text-3xl font-bold text-center sm:text-left">
-            CerreTrackApp Analytics
+            CerreTrack Analytics
           </h1>
           {fileName && !isPreview && (
             <p className="text-sm text-muted-foreground mt-1">
