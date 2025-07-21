@@ -1113,13 +1113,24 @@ export default function CSVAnalyzer() {
       intermediateRows.push(currentRowIndex)
       endRowIndex = currentRowIndex
 
-      // Lógica especial para trayectos hacia Annex
+      // Lógica especial para trayectos hacia/desde Annex
       if (isAnnexOrigin(origin)) {
+        // Caso de ida hacia Annex desde una población
         if (isAnnexIntermediateStop(currentArrival)) {
           // Ignorar como destino final, continuar buscando
           continue
         }
         if (isAnnexFinalDest(currentArrival)) {
+          destination = currentArrival
+          break
+        }
+      } else if (isAnnexFinalDest(origin)) {
+        // Caso de vuelta saliendo de Annex hacia una población
+        if (isAnnexIntermediateStop(currentArrival)) {
+          // Ignorar como destino final, continuar buscando
+          continue
+        }
+        if (isAnnexReturnDest(currentArrival)) {
           destination = currentArrival
           break
         }
@@ -1330,6 +1341,78 @@ export default function CSVAnalyzer() {
 
         // Caso 1: Trayecto completo en una sola fila
         if (departure && arrival && departure !== arrival) {
+          // Detectar trayectos Annex con paradas intermedias y procesarlos como fragmentados
+          if (
+            (isAnnexOrigin(departure) || isAnnexFinalDest(departure)) &&
+            isAnnexIntermediateStop(arrival)
+          ) {
+            const fragmentedTrip = processFragmentedTripFromOrigin(
+              data,
+              asset,
+              rowIndexes,
+              i,
+              departure,
+            )
+            if (fragmentedTrip) {
+              const route = `${fragmentedTrip.origin} → ${fragmentedTrip.destination}`
+              const validation = isValidParqueaderoCambiaderoStrict(
+                fragmentedTrip.origin,
+                fragmentedTrip.destination,
+              )
+              const isVA =
+                (fragmentedTrip.origin === "Parqueadero Valledupar" &&
+                  fragmentedTrip.destination === "Cambiadero Annex") ||
+                (fragmentedTrip.origin === "Cambiadero Annex" &&
+                  fragmentedTrip.destination === "Parqueadero Valledupar")
+              const distValid =
+                !isVA ||
+                (fragmentedTrip.totalDistance >= 115 &&
+                  fragmentedTrip.totalDistance <= 135)
+
+              if (!distValid) {
+                rejectedTrips.push({
+                  asset,
+                  reason: "Distancia fuera de rango Annex-Valledupar",
+                  origin: fragmentedTrip.origin,
+                  destination: fragmentedTrip.destination,
+                })
+                console.log(
+                  `❌ Distancia fuera de rango para ruta Annex-Valledupar: ${fragmentedTrip.totalDistance}`,
+                )
+              } else {
+                trips.push(fragmentedTrip)
+
+              // Actualizar estadísticas de cambiaderos
+              if (fragmentedTrip.assignedCambiadero === "Cambiadero Change House") {
+                cambiaderoStats.changeHouse++
+              } else if (fragmentedTrip.assignedCambiadero === "Cambiadero 5x2") {
+                cambiaderoStats.fiveX2++
+              } else if (
+                fragmentedTrip.destination === "Cambiadero Change House" ||
+                fragmentedTrip.destination === "Cambiadero 5x2"
+              ) {
+                cambiaderoStats.unassigned++
+              }
+
+              acceptedTrips.push({
+                asset,
+                route,
+                direction: validation.direction,
+                type: "Fragmentado (Annex)",
+                cambiadero: fragmentedTrip.assignedCambiadero || undefined,
+              })
+
+              console.log(
+                `✅ Trayecto Annex fragmentado aceptado para ${asset}: ${fragmentedTrip.origin} → ${fragmentedTrip.destination}${fragmentedTrip.assignedCambiadero ? ` - Asignado a: ${fragmentedTrip.assignedCambiadero}` : ""}`,
+              )
+
+              // Avanzar al siguiente segmento después del fragmento procesado
+              i = rowIndexes.findIndex((idx) => idx > fragmentedTrip.endRowIndex)
+              if (i === -1) break
+              continue
+            }
+          }
+
           let realArrival = arrival
           const realDeparture = departure
 
