@@ -301,7 +301,7 @@ function determineCambiadero(
   if (isOutboundToChangeHouse) {
     // VIAJES DE IDA: Población → Cambiadero
     // Fuente: Horario de salida desde la POBLACIÓN (origen)
-    // Tolerancia: ±15 minutos
+    // Tolerancia: ±10 minutos
     
     const populationSchedules = OUTBOUND_SCHEDULES[origin as keyof typeof OUTBOUND_SCHEDULES]
     if (!populationSchedules) {
@@ -313,7 +313,7 @@ function determineCambiadero(
       }
     }
 
-    const tolerance = 15 // ±15 minutos para viajes de ida 
+    const tolerance = 10 // ±10 minutos para viajes de ida
     let matches: { cambiadero: string; diff: number; refHour: string }[] = []
 
     // Verificar Change House
@@ -1062,9 +1062,9 @@ export default function CSVAnalyzer() {
 
   // Helpers para lógica de Annex y vuelta
   const ANNEX_FINAL_DEST = "Cambiadero Annex"
-  const ANNEX_INTERMEDIATE_STOPS = ["Parqueadero San Juan", "Parqueadero Fonseca", "Parqueadero Urumita"]
-  const ANNEX_ORIGINS = ["Parqueadero Valledupar", "Parqueadero Waya"]
-  const ANNEX_RETURN_DESTS = ["Parqueadero Valledupar", "Parqueadero Waya"]
+  const ANNEX_INTERMEDIATE_STOPS = ["Parqueadero San Juan", "Parqueadero Fonseca"]
+  const ANNEX_ORIGINS = ["Parqueadero Urumita", "Parqueadero Valledupar", "Parqueadero Waya"]
+  const ANNEX_RETURN_DESTS = ["Parqueadero Urumita", "Parqueadero Valledupar", "Parqueadero Waya"]
 
   function isAnnexOrigin(location: string) {
     return ANNEX_ORIGINS.includes(location)
@@ -1224,12 +1224,14 @@ export default function CSVAnalyzer() {
 
       // Lógica especial para trayectos de vuelta desde Annex
       if (isAnnexFinalDest(destination)) {
+        if (isAnnexIntermediateStop(currentDeparture)) {
+          // Ignorar como origen final, continuar buscando
+          continue
+        }
         if (isAnnexReturnDest(currentDeparture)) {
-          // Si encontramos un destino de retorno válido, lo asignamos y terminamos.
           origin = currentDeparture
           break
         }
-        // Si es una parada intermedia, la ignoramos y continuamos buscando hacia atrás.
       } else {
         // Lógica normal: si encontramos un origen válido, terminar el trayecto
         if (currentDeparture) {
@@ -2578,7 +2580,7 @@ export default function CSVAnalyzer() {
           className="flex flex-col"
         >
           <h1 className="text-3xl font-bold text-center sm:text-left">
-            CerreTrack Analytics
+          CerreTrack Analytics
           </h1>
           {fileName && !isPreview && (
             <p className="text-sm text-muted-foreground mt-1">
@@ -2730,7 +2732,7 @@ export default function CSVAnalyzer() {
                                 <li>• <strong>Trayectos Fragmentados:</strong> Suma múltiples filas consecutivas hasta completar el viaje</li>
                                 <li>• <strong>Separación por Horarios:</strong> Solo para "Change House" → "Change House" vs "5x2"</li>
                                 <li>• <strong>Filtrado Inteligente:</strong> Solo trayectos válidos Parqueadero ↔ Cambiadero</li>
-                                <li>• <strong>Tolerancia:</strong> ±15 minutos (ida) / ±15 minutos (vuelta)</li>
+                                <li>• <strong>Tolerancia:</strong> ±10 min (ida) / ±15 min (vuelta)</li>
                               </ul>
                             </div>
                           </AlertDescription>
@@ -2915,7 +2917,7 @@ export default function CSVAnalyzer() {
                             <strong>Filtrado Inteligente:</strong> Solo considera trayectos válidos Parqueadero ↔ Cambiadero
                           </li>
                           <li>
-                            <strong>Horarios de Ida:</strong> Compara con horarios de salida desde cada población (±15 min)
+                            <strong>Horarios de Ida:</strong> Compara con horarios de salida desde cada población (±10 min)
                           </li>
                           <li>
                             <strong>Horarios de Vuelta:</strong> Change House (7:00 PM) vs 5x2 (5:00 PM) (±15 min)
@@ -3037,7 +3039,7 @@ export default function CSVAnalyzer() {
                           <p>El sistema utilizará la columna DepartureTime para:</p>
                           <ul className="list-disc list-inside mt-2 space-y-1">
                             <li>Validar que el trayecto sea Parqueadero ↔ Cambiadero</li>
-                            <li>Si es Change House → comparar con horarios específicos por población (ida: ±15 min)</li>
+                            <li>Si es Change House → comparar con horarios específicos por población (ida: ±10 min)</li>
                             <li>Si es Change House → comparar con horarios de vuelta: CH (19:00) vs 5x2 (17:00) (±15 min)</li>
                             <li>Procesar trayectos completos y fragmentados preservando el orden</li>
                             <li>Asignar automáticamente al cambiadero virtual correspondiente</li>
@@ -3790,7 +3792,7 @@ export default function CSVAnalyzer() {
                               <div>
                                 <p className="font-medium">⏰ Separación por Horarios:</p>
                                 <ul className="space-y-1 mt-1">
-                                  <li>• Ida: Por población (±15 min)</li>
+                                  <li>• Ida: Por población (±10 min)</li>
                                   <li>• Vuelta: CH (19:00) vs 5x2 (17:00) (±15 min)</li>
                                   <li>• Formato: "HH:mm:ss" (24h)</li>
                                 </ul>
@@ -4081,7 +4083,7 @@ export default function CSVAnalyzer() {
                       <div>
                         <p className="font-medium">Viajes de Ida (Población → Change House):</p>
                         <p>• Fuente: Horario desde población</p>
-                        <p>• Tolerancia: ±15 minutos</p>
+                        <p>• Tolerancia: ±10 minutos</p>
                         <p>• 10 poblaciones permitidas para 5x2</p>
                         <p>• 3 poblaciones restringidas (solo Change House)</p>
                       </div>
