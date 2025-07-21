@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: 'Luis Lopez',
   generator: 'Lals.Dev',
   icons: {
-    icon: '/favicon.ico',
+    icon: '/bus.ico',
   },
 }
 
