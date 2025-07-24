@@ -1322,9 +1322,16 @@ export default function CSVAnalyzer() {
     // Procesar cada activo individualmente
     Object.entries(assetGroups).forEach(([asset, rowIndexes]) => {
       let i = 0
+      // NUEVO: Set para filas ya procesadas
+      const processedRows = new Set<number>()
 
       while (i < rowIndexes.length) {
         const currentRowIndex = rowIndexes[i]
+        // Si la fila ya fue procesada, saltar
+        if (processedRows.has(currentRowIndex)) {
+          i++
+          continue
+        }
         const currentRow = data[currentRowIndex - 2] // Ajustar índice para acceder a data
 
         const departure = normalizeLocation(currentRow[columnMappings.deparfrom])
@@ -1452,13 +1459,24 @@ export default function CSVAnalyzer() {
               `❌ Trayecto completo rechazado para ${asset}: ${realDeparture} → ${realArrival} - ${validation.reason}`,
             )
           }
+          // Al aceptar el trayecto, marcar la fila como procesada
+          // (después de trips.push(...))
+          processedRows.add(currentRowIndex)
           i++
         }
         // Caso 2: Inicio de trayecto fragmentado (solo origen, sin destino)
         else if (departure && !arrival) {
           const fragmentedTrip = processFragmentedTripFromOrigin(data, asset, rowIndexes, i, departure)
           if (fragmentedTrip) {
+            // Verificar si alguna fila ya fue procesada
+            const fragmentRows = [fragmentedTrip.startRowIndex, ...fragmentedTrip.intermediateRows, fragmentedTrip.endRowIndex]
+            if (fragmentRows.some(idx => processedRows.has(idx))) {
+              // Si alguna fila ya fue procesada, saltar este trayecto
+              i++
+              continue
+            }
             trips.push(fragmentedTrip)
+            fragmentRows.forEach(idx => processedRows.add(idx))
             const route = `${fragmentedTrip.origin} → ${fragmentedTrip.destination}`
             const validation = isValidParqueaderoCambiaderoStrict(fragmentedTrip.origin, fragmentedTrip.destination)
 
@@ -1502,7 +1520,15 @@ export default function CSVAnalyzer() {
         else if (!departure && arrival) {
           const fragmentedTrip = processFragmentedTripFromDestination(data, asset, rowIndexes, i, arrival)
           if (fragmentedTrip) {
+            // Verificar si alguna fila ya fue procesada
+            const fragmentRows = [fragmentedTrip.startRowIndex, ...fragmentedTrip.intermediateRows, fragmentedTrip.endRowIndex]
+            if (fragmentRows.some(idx => processedRows.has(idx))) {
+              // Si alguna fila ya fue procesada, saltar este trayecto
+              i++
+              continue
+            }
             trips.push(fragmentedTrip)
+            fragmentRows.forEach(idx => processedRows.add(idx))
             const route = `${fragmentedTrip.origin} → ${fragmentedTrip.destination}`
             const validation = isValidParqueaderoCambiaderoStrict(fragmentedTrip.origin, fragmentedTrip.destination)
 
