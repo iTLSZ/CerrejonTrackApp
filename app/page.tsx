@@ -153,6 +153,8 @@ const LOCATION_NORMALIZATION: Record<string, string> = {
   "80, 200008 Valledupar, Colombia": "Parqueadero Valledupar",
   "Carrera 22 BIS, 200005 Valledupar, Colombia": "Parqueadero Valledupar",
   "Valledupar Zona Urbana": "Parqueadero Valledupar",
+
+  "Transversal 18, 444030 San Juan del Cesar, Colombia": "Parqueadero San Juan",
 }
 
 // HORARIOS DE REFERENCIA PARA SEPARACIÓN DE CAMBIADEROS
@@ -1093,8 +1095,8 @@ export default function CSVAnalyzer() {
     const intermediateRows: number[] = []
     const startRowIndex = assetRowIndexes[startIndex]
 
-    // Obtener datos de la fila inicial
-    const startRow = data[startRowIndex]
+    // Obtener datos de la fila inicial (ajustar índice para acceder a data)
+    const startRow = data[startRowIndex - 2]
     const startDate = startRow[headers.findIndex((h) => h.toLowerCase().includes("date"))] || undefined
     const startDriver = startRow[headers.findIndex((h) => h.toLowerCase().includes("driver"))] || undefined
     const departureTime = startRow[columnMappings.departureTime] || undefined
@@ -1105,7 +1107,7 @@ export default function CSVAnalyzer() {
     // Buscar hacia adelante hasta encontrar el destino
     for (let i = startIndex + 1; i < assetRowIndexes.length; i++) {
       const currentRowIndex = assetRowIndexes[i]
-      const currentRow = data[currentRowIndex]
+      const currentRow = data[currentRowIndex - 2] // Ajustar índice para acceder a data
       const currentArrival = normalizeLocation(currentRow[columnMappings.arriveat])
       const currentDistance = Number.parseFloat(currentRow[columnMappings.distance]) || 0
 
@@ -1202,8 +1204,8 @@ export default function CSVAnalyzer() {
     const intermediateRows: number[] = []
     const endRowIndex = assetRowIndexes[startIndex]
 
-    // Obtener datos de la fila inicial
-    const endRow = data[endRowIndex]
+    // Obtener datos de la fila inicial (ajustar índice para acceder a data)
+    const endRow = data[endRowIndex - 2]
     const endDate = endRow[headers.findIndex((h) => h.toLowerCase().includes("date"))] || undefined
     const endDriver = endRow[headers.findIndex((h) => h.toLowerCase().includes("driver"))] || undefined
     const departureTime = endRow[columnMappings.departureTime] || undefined
@@ -1214,7 +1216,7 @@ export default function CSVAnalyzer() {
     // Buscar hacia atrás hasta encontrar el origen
     for (let i = startIndex - 1; i >= 0; i--) {
       const currentRowIndex = assetRowIndexes[i]
-      const currentRow = data[currentRowIndex]
+      const currentRow = data[currentRowIndex - 2] // Ajustar índice para acceder a data
       const currentDeparture = normalizeLocation(currentRow[columnMappings.deparfrom])
       const currentDistance = Number.parseFloat(currentRow[columnMappings.distance]) || 0
 
@@ -1307,12 +1309,14 @@ export default function CSVAnalyzer() {
     const cambiaderoStats = { changeHouse: 0, fiveX2: 0, unassigned: 0 }
 
     // Agrupar filas por activo manteniendo el orden
+    // Ajustar índices para que correspondan a las filas reales del CSV (fila 1 = encabezados, fila 2 = primer dato)
     data.forEach((row, index) => {
       const asset = row[columnMappings.assetExtra] || "Unknown"
       if (!assetGroups[asset]) {
         assetGroups[asset] = []
       }
-      assetGroups[asset].push(index)
+      // Ajustar el índice para que corresponda a la fila real del CSV (sumar 2: 1 para encabezados + 1 para base 1)
+      assetGroups[asset].push(index + 2)
     })
 
     // Procesar cada activo individualmente
@@ -1321,7 +1325,7 @@ export default function CSVAnalyzer() {
 
       while (i < rowIndexes.length) {
         const currentRowIndex = rowIndexes[i]
-        const currentRow = data[currentRowIndex]
+        const currentRow = data[currentRowIndex - 2] // Ajustar índice para acceder a data
 
         const departure = normalizeLocation(currentRow[columnMappings.deparfrom])
         const arrival = normalizeLocation(currentRow[columnMappings.arriveat])
@@ -1336,7 +1340,7 @@ export default function CSVAnalyzer() {
           // Lógica especial para trayectos directos a Annex
           if (isAnnexOrigin(departure) && isAnnexIntermediateStop(arrival)) {
             for (let j = i + 1; j < rowIndexes.length; j++) {
-              const nextRow = data[rowIndexes[j]]
+              const nextRow = data[rowIndexes[j] - 2] // Ajustar índice para acceder a data
               const nextArrival = normalizeLocation(nextRow[columnMappings.arriveat])
               if (isAnnexFinalDest(nextArrival)) {
                 realArrival = nextArrival
@@ -1350,7 +1354,7 @@ export default function CSVAnalyzer() {
           // Lógica especial para trayectos de vuelta desde Annex
           if (isAnnexFinalDest(departure) && isAnnexIntermediateStop(arrival)) {
             for (let j = i + 1; j < rowIndexes.length; j++) {
-              const nextRow = data[rowIndexes[j]]
+              const nextRow = data[rowIndexes[j] - 2] // Ajustar índice para acceder a data
               const nextArrival = normalizeLocation(nextRow[columnMappings.arriveat])
               if (isAnnexReturnDest(nextArrival)) {
                 realArrival = nextArrival
@@ -1949,7 +1953,7 @@ export default function CSVAnalyzer() {
         trip.date || "",
         trip.driver || "",
         trip.departureTime || "",
-        `${trip.startRowIndex + 1}-${trip.endRowIndex + 1}`, // Referencia a filas originales
+        `${trip.startRowIndex}-${trip.endRowIndex}`, // Referencia a filas originales (ya ajustadas para corresponder a filas reales del CSV)
         trip.intermediateRows.length > 0 ? "Fragmentado" : "Completo",
         trip.assignedCambiadero || trip.destination,
         trip.cambiaderoReason || "N/A",
