@@ -1115,23 +1115,13 @@ export default function CSVAnalyzer() {
       intermediateRows.push(currentRowIndex)
       endRowIndex = currentRowIndex
 
-      // Lógica especial para trayectos hacia Annex
-      if (isAnnexOrigin(origin)) {
-        if (isAnnexIntermediateStop(currentArrival)) {
-          // Ignorar como destino final, continuar buscando
-          continue
-        }
-        if (isAnnexFinalDest(currentArrival)) {
-          destination = currentArrival
-          break
-        }
-      } else {
-        // Lógica normal: si encontramos un destino válido, terminar el trayecto
-        if (currentArrival) {
-          destination = currentArrival
-          break
-        }
+      // Cambiado: solo terminar trayecto si se encuentra un cambiadero
+      if (currentArrival && currentArrival.startsWith("Cambiadero")) {
+        destination = currentArrival
+        break
       }
+      // Si es parqueadero, solo suma distancia, NO termina trayecto
+      // Si es vacío o cualquier otro, sigue sumando
     }
 
     // Aplicar lógica de separación de cambiaderos ANTES de la validación final
