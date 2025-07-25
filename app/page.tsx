@@ -155,6 +155,8 @@ const LOCATION_NORMALIZATION: Record<string, string> = {
   "Valledupar Zona Urbana": "Parqueadero Valledupar",
 
   "Transversal 18, 444030 San Juan del Cesar, Colombia": "Parqueadero San Juan",
+  "Barrancas Zona Urbana-30 Km/h": "Parqueadero Barrancas",
+  "Parqueadero Barrancas2": "Parqueadero Barrancas",
 }
 
 // HORARIOS DE REFERENCIA PARA SEPARACIÓN DE CAMBIADEROS
