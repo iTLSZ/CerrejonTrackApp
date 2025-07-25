@@ -798,6 +798,21 @@ const formatColombianNumber = (number: number, decimals = 2): string => {
   })
 }
 
+// Utilidad para encontrar el último parqueadero consecutivo a partir de un índice dado en un grupo de filas
+function findLastParqueaderoIndex(data: string[][], rowIndexes: number[], startIndex: number, columnMappings: any): number {
+  let lastParqueaderoIdx = startIndex;
+  for (let i = startIndex; i < rowIndexes.length; i++) {
+    const row = data[rowIndexes[i] - 2];
+    const arrival = normalizeLocation(row[columnMappings.arriveat]);
+    if (arrival && arrival.startsWith("Parqueadero")) {
+      lastParqueaderoIdx = i;
+    } else {
+      break;
+    }
+  }
+  return lastParqueaderoIdx;
+}
+
 export default function CSVAnalyzer() {
   const [csvData, setCsvData] = useState<string[][]>([])
   const [rawData, setRawData] = useState<string>("")
@@ -1188,86 +1203,64 @@ export default function CSVAnalyzer() {
     startIndex: number,
     destination: string,
   ): ProcessedTrip | null => {
-    let totalDistance = 0
-    let origin = ""
-    let startRowIndex = assetRowIndexes[startIndex]
-    const intermediateRows: number[] = []
-    const endRowIndex = assetRowIndexes[startIndex]
-
-    // Obtener datos de la fila inicial (ajustar índice para acceder a data)
-    const endRow = data[endRowIndex - 2]
-    const endDate = endRow[headers.findIndex((h) => h.toLowerCase().includes("date"))] || undefined
-    const endDriver = endRow[headers.findIndex((h) => h.toLowerCase().includes("driver"))] || undefined
-    const departureTime = endRow[columnMappings.departureTime] || undefined
-
-    // Sumar distancia de la fila inicial
-    totalDistance += Number.parseFloat(endRow[columnMappings.distance]) || 0
-
-    // Buscar hacia atrás hasta encontrar el origen
-    for (let i = startIndex - 1; i >= 0; i--) {
-      const currentRowIndex = assetRowIndexes[i]
-      const currentRow = data[currentRowIndex - 2] // Ajustar índice para acceder a data
-      const currentDeparture = normalizeLocation(currentRow[columnMappings.deparfrom])
-      const currentDistance = Number.parseFloat(currentRow[columnMappings.distance]) || 0
-
-      totalDistance += currentDistance
-      intermediateRows.unshift(currentRowIndex) // Agregar al inicio para mantener orden
-      startRowIndex = currentRowIndex
-
-      // Lógica especial para trayectos de vuelta desde Annex
-      if (isAnnexFinalDest(destination)) {
-        if (isAnnexIntermediateStop(currentDeparture)) {
-          // Ignorar como origen final, continuar buscando
-          continue
-        }
-        if (isAnnexReturnDest(currentDeparture)) {
-          origin = currentDeparture
-          break
-        }
+    let totalDistance = 0;
+    let origin = "";
+    let startRowIndex = assetRowIndexes[startIndex];
+    const intermediateRows: number[] = [];
+    let endRowIndex = assetRowIndexes[startIndex];
+    // Buscar el último parqueadero consecutivo hacia adelante
+    let lastParqueaderoIdx = startIndex;
+    for (let i = startIndex; i < assetRowIndexes.length; i++) {
+      const row = data[assetRowIndexes[i] - 2];
+      const arrival = normalizeLocation(row[columnMappings.arriveat]);
+      if (arrival && arrival.startsWith("Parqueadero")) {
+        lastParqueaderoIdx = i;
       } else {
-        // Lógica normal: si encontramos un origen válido, terminar el trayecto
-        if (currentDeparture) {
-          origin = currentDeparture
-          break
-        }
+        break;
       }
     }
-
-    // Aplicar lógica de separación de cambiaderos ANTES de la validación final
-    let finalOrigin = origin
-    let finalDestination = destination
-    let assignedCambiadero = ""
-    let cambiaderoReason = "No aplica separación"
-
-    // Solo si involucra el cambiadero Change House (que debe ser separado), aplicar separación por horario
-    const involvesChangeHouse = 
-      destination === "Cambiadero Change House" || 
-      origin === "Cambiadero Change House"
-
+    endRowIndex = assetRowIndexes[lastParqueaderoIdx];
+    // Sumar distancias de todas las filas involucradas
+    for (let i = startIndex; i <= lastParqueaderoIdx; i++) {
+      totalDistance += Number.parseFloat(data[assetRowIndexes[i] - 2][columnMappings.distance]) || 0;
+      if (i !== startIndex) intermediateRows.push(assetRowIndexes[i]);
+    }
+    // Buscar hacia atrás hasta encontrar el cambiadero de origen
+    for (let i = startIndex - 1; i >= 0; i--) {
+      const currentRow = data[assetRowIndexes[i] - 2];
+      const currentDeparture = normalizeLocation(currentRow[columnMappings.deparfrom]);
+      if (currentDeparture && currentDeparture.startsWith("Cambiadero")) {
+        origin = currentDeparture;
+        startRowIndex = assetRowIndexes[i];
+        break;
+      }
+    }
+    // El resto igual que antes
+    let finalOrigin = origin;
+    let finalDestination = normalizeLocation(data[endRowIndex - 2][columnMappings.arriveat]);
+    let assignedCambiadero = "";
+    let cambiaderoReason = "No aplica separación";
+    const departureTime = data[endRowIndex - 2][columnMappings.departureTime] || undefined;
+    const involvesChangeHouse = finalDestination === "Cambiadero Change House" || finalOrigin === "Cambiadero Change House";
     if (involvesChangeHouse && departureTime) {
-      const cambiaderoResult = determineCambiadero(origin, destination, departureTime)
+      const cambiaderoResult = determineCambiadero(finalOrigin, finalDestination, departureTime);
       if (cambiaderoResult.isValid && cambiaderoResult.cambiadero) {
-        // Reemplazar el cambiadero genérico con el específico
-        if (origin === "Cambiadero Change House") {
-          finalOrigin = cambiaderoResult.cambiadero
-        } else if (destination === "Cambiadero Change House") {
-          finalDestination = cambiaderoResult.cambiadero
+        if (finalOrigin === "Cambiadero Change House") {
+          finalOrigin = cambiaderoResult.cambiadero;
+        } else if (finalDestination === "Cambiadero Change House") {
+          finalDestination = cambiaderoResult.cambiadero;
         }
-        assignedCambiadero = cambiaderoResult.cambiadero
-        cambiaderoReason = cambiaderoResult.reason
+        assignedCambiadero = cambiaderoResult.cambiadero;
+        cambiaderoReason = cambiaderoResult.reason;
       } else {
-        // Si no se puede clasificar por horario, mantener genérico pero marcar como no asignado
-        cambiaderoReason = cambiaderoResult.reason
-        assignedCambiadero = destination.startsWith("Cambiadero") ? destination : origin
+        cambiaderoReason = cambiaderoResult.reason;
+        assignedCambiadero = finalDestination.startsWith("Cambiadero") ? finalDestination : finalOrigin;
       }
     } else if (involvesChangeHouse) {
-      // Si involucra cambiaderos pero no hay horario
-      cambiaderoReason = "Sin horario disponible para clasificar"
-      assignedCambiadero = destination.startsWith("Cambiadero") ? destination : origin
+      cambiaderoReason = "Sin horario disponible para clasificar";
+      assignedCambiadero = finalDestination.startsWith("Cambiadero") ? finalDestination : finalOrigin;
     }
-
-    // Verificar si el trayecto es válido usando la función estricta
-    const validation = isValidParqueaderoCambiaderoStrict(finalOrigin, finalDestination)
+    const validation = isValidParqueaderoCambiaderoStrict(finalOrigin, finalDestination);
     if (validation.isValid) {
       return {
         asset,
@@ -1276,18 +1269,18 @@ export default function CSVAnalyzer() {
         totalDistance,
         startRowIndex,
         endRowIndex,
-        date: endDate,
-        driver: endDriver,
+        date: data[endRowIndex - 2][headers.findIndex((h) => h.toLowerCase().includes("date"))] || undefined,
+        driver: data[endRowIndex - 2][headers.findIndex((h) => h.toLowerCase().includes("driver"))] || undefined,
         intermediateRows,
         departureTime,
         assignedCambiadero,
         cambiaderoReason,
-      }
+      };
     } else {
-      console.log(`Trayecto fragmentado rechazado para ${asset}: ${validation.reason}`)
-      return null
+      console.log(`Trayecto fragmentado rechazado para ${asset}: ${validation.reason}`);
+      return null;
     }
-  }
+  };
 
   // Nueva función para procesar trayectos completos y fragmentados (MEJORADA CON SEPARACIÓN DE CAMBIADEROS)
   const processTripsAdvanced = (data: string[][]): ProcessedTrip[] => {
